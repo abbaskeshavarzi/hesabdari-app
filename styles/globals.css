@@ -1,0 +1,61 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  padding: 0;
+  margin: 0;
+  background: #EDEFEF;
+  color: #17233D;
+  font-family: 'Vazirmatn', Tahoma, sans-serif;
+}
+
+body {
+  direction: rtl;
+}
+
+::selection {
+  background: #B8873B;
+  color: #fff;
+}
+
+/* thin ledger-style dividers used across tables/cards */
+.ledger-rule {
+  border-top: 1px solid #C7CCCB;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid #B8873B;
+  outline-offset: 2px;
+}
+
+table.ledger {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table.ledger th {
+  font-weight: 600;
+  text-align: right;
+  color: #5A6472;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+  border-bottom: 1px solid #C7CCCB;
+}
+
+table.ledger td {
+  padding: 12px;
+  border-bottom: 1px solid #DFE2E1;
+  font-size: 0.92rem;
+}
+
+table.ledger tbody tr:hover {
+  background: #E4E7E6;
+}
