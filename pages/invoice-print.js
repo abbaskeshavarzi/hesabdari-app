@@ -11,6 +11,7 @@ export default function InvoicePrint() {
   const router = useRouter();
   const { id } = router.query;
   const [invoice, setInvoice] = useState(undefined);
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
     if (!id) return;
@@ -20,6 +21,11 @@ export default function InvoicePrint() {
       .eq('id', id)
       .single()
       .then(({ data }) => setInvoice(data || null));
+    supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', id)
+      .then(({ data }) => setItems(data || []));
   }, [id]);
 
   if (invoice === undefined) {
@@ -48,23 +54,36 @@ export default function InvoicePrint() {
 
         <div className="mb-6">
           <div className="text-xs text-ink/50 mb-1">مشتری</div>
-          <div className="font-semibold">{invoice.customers?.name}</div>
-          {invoice.customers?.phone && <div className="text-xs text-ink/60" dir="ltr">{invoice.customers.phone}</div>}
-          {invoice.customers?.address && <div className="text-xs text-ink/60">{invoice.customers.address}</div>}
+          <div className="font-semibold">{invoice.customers ? invoice.customers.name : ''}</div>
+          {invoice.customers && invoice.customers.phone && <div className="text-xs text-ink/60" dir="ltr">{invoice.customers.phone}</div>}
+          {invoice.customers && invoice.customers.address && <div className="text-xs text-ink/60">{invoice.customers.address}</div>}
         </div>
 
         <table className="ledger mb-6">
           <thead>
             <tr>
               <th>شرح</th>
-              <th>مبلغ</th>
+              <th>تعداد</th>
+              <th>قیمت واحد</th>
+              <th>جمع</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>{invoice.description || 'خدمات / کالا'}</td>
-              <td>{formatToman(invoice.total_amount)}</td>
-            </tr>
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={3}>{invoice.description || 'خدمات / کالا'}</td>
+                <td>{formatToman(invoice.total_amount)}</td>
+              </tr>
+            ) : (
+              items.map((it) => (
+                <tr key={it.id}>
+                  <td>{it.product_name}</td>
+                  <td>{it.quantity}</td>
+                  <td>{formatToman(it.unit_price)}</td>
+                  <td>{formatToman(it.quantity * it.unit_price)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 
