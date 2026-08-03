@@ -45,10 +45,14 @@ export default function InvoicePrint() {
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
       }
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
+      const el = cardRef.current;
+      const canvas = await html2canvas(el, {
         backgroundColor: '#ffffff',
         foreignObjectRendering: true,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
       });
       const link = document.createElement('a');
       link.download = 'invoice-' + (invoice.invoice_number || id) + '.png';
