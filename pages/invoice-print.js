@@ -42,7 +42,14 @@ export default function InvoicePrint() {
     setSaving(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(cardRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        foreignObjectRendering: true,
+      });
       const link = document.createElement('a');
       link.download = 'invoice-' + (invoice.invoice_number || id) + '.png';
       link.href = canvas.toDataURL('image/png');
