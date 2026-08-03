@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import { supabase } from '../lib/supabaseClient';
@@ -337,14 +338,13 @@ export default function Invoices() {
                       <button onClick={() => toggleExpand(inv.id)} className="focus-ring text-xs text-ink/60 hover:underline ml-3">
                         {expanded === inv.id ? 'بستن' : 'اقلام'}
                       </button>
-                      <a
+                      <Link
                         href={'/invoice-print?id=' + inv.id}
                         target="_blank"
-                        rel="noreferrer"
                         className="focus-ring text-xs text-brass hover:underline ml-3"
                       >
                         چاپ
-                      </a>
+                      </Link>
                       <button onClick={() => deleteRow(inv.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
                     </td>
                   </tr>
