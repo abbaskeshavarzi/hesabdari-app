@@ -12,6 +12,7 @@ const emptyHeader = {
   invoice_number: '',
   issue_date: new Date().toISOString().slice(0, 10),
   description: '',
+  status: 'معوق',
 };
 const emptyLine = { product_id: '', product_name: '', quantity: '1', unit_price: '' };
 
@@ -38,7 +39,7 @@ export default function Invoices() {
     const { data: prods } = await supabase.from('products').select('id, name, price, unit, stock_qty').order('name');
     const { data: invs } = await supabase
       .from('invoices')
-      .select('id, invoice_number, issue_date, total_amount, description, customer_id, customers(name)')
+      .select('id, invoice_number, issue_date, total_amount, description, status, customer_id, customers(name)')
       .order('issue_date', { ascending: false });
     setCustomers(custs || []);
     setProducts(prods || []);
@@ -108,6 +109,7 @@ export default function Invoices() {
         issue_date: header.issue_date,
         total_amount: total,
         description: header.description,
+        status: header.status,
       })
       .select()
       .single();
@@ -143,6 +145,17 @@ export default function Invoices() {
     if (!confirm('این فاکتور حذف شود؟ (توجه: موجودی انبار خودکار برنمی‌گردد)')) return;
     await supabase.from('invoices').delete().eq('id', id);
     load();
+  }
+
+  async function changeStatus(id, status) {
+    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+    await supabase.from('invoices').update({ status }).eq('id', id);
+  }
+
+  function statusColor(status) {
+    if (status === 'پرداخت‌شده') return 'text-good bg-good/10';
+    if (status === 'نیمه‌پرداخت') return 'text-brassDark bg-brass/10';
+    return 'text-bad bg-bad/10';
   }
 
   async function toggleExpand(id) {
@@ -183,7 +196,7 @@ export default function Invoices() {
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white border border-line rounded-xl p-5 mb-6">
           {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>}
-          <div className="grid sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid sm:grid-cols-4 gap-3 mb-4">
             <div>
               <label className="block text-xs text-ink/60 mb-1">مشتری</label>
               <select
@@ -213,6 +226,18 @@ export default function Invoices() {
                 onChange={(e) => setHeader({ ...header, issue_date: e.target.value })}
                 className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
               />
+            </div>
+            <div>
+              <label className="block text-xs text-ink/60 mb-1">وضعیت پرداخت</label>
+              <select
+                value={header.status}
+                onChange={(e) => setHeader({ ...header, status: e.target.value })}
+                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-white"
+              >
+                <option value="معوق">معوق</option>
+                <option value="نیمه‌پرداخت">نیمه‌پرداخت</option>
+                <option value="پرداخت‌شده">پرداخت‌شده</option>
+              </select>
             </div>
           </div>
 
@@ -280,14 +305,15 @@ export default function Invoices() {
               <th>مشتری</th>
               <th>شماره فاکتور</th>
               <th>مبلغ</th>
+              <th>وضعیت</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <tr><td colSpan={6} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-ink/40 py-6">فاکتوری یافت نشد.</td></tr>
+              <tr><td colSpan={6} className="text-center text-ink/40 py-6">فاکتوری یافت نشد.</td></tr>
             ) : (
               filtered.map((inv) => (
                 <React.Fragment key={inv.id}>
@@ -296,6 +322,17 @@ export default function Invoices() {
                     <td className="font-medium">{inv.customers ? inv.customers.name : '—'}</td>
                     <td>{inv.invoice_number || '—'}</td>
                     <td>{formatToman(inv.total_amount)}</td>
+                    <td>
+                      <select
+                        value={inv.status || 'معوق'}
+                        onChange={(e) => changeStatus(inv.id, e.target.value)}
+                        className={`focus-ring text-xs rounded-md px-2 py-1 border-0 font-semibold ${statusColor(inv.status)}`}
+                      >
+                        <option value="معوق">معوق</option>
+                        <option value="نیمه‌پرداخت">نیمه‌پرداخت</option>
+                        <option value="پرداخت‌شده">پرداخت‌شده</option>
+                      </select>
+                    </td>
                     <td className="whitespace-nowrap">
                       <button onClick={() => toggleExpand(inv.id)} className="focus-ring text-xs text-ink/60 hover:underline ml-3">
                         {expanded === inv.id ? 'بستن' : 'اقلام'}
@@ -313,7 +350,7 @@ export default function Invoices() {
                   </tr>
                   {expanded === inv.id && (
                     <tr>
-                      <td colSpan={5} className="bg-paper">
+                      <td colSpan={6} className="bg-paper">
                         {!itemsCache[inv.id] ? (
                           <p className="text-xs text-ink/40 py-2">در حال بارگذاری…</p>
                         ) : itemsCache[inv.id].length === 0 ? (
