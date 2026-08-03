@@ -11,11 +11,13 @@ const NAV = [
   { href: '/invoices', label: 'فاکتورها', key: '05' },
   { href: '/payments', label: 'پرداخت‌ها', key: '06' },
   { href: '/reports', label: 'گزارش فروش', key: '07' },
+  { href: '/settings', label: 'تنظیمات', key: '08' },
 ];
 
 export default function Layout({ children, title }) {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
+  const [business, setBusiness] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -25,6 +27,16 @@ export default function Layout({ children, title }) {
     });
     return () => listener.subscription.unsubscribe();
   }, [router]);
+
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from('business_settings')
+      .select('name, logo_url')
+      .eq('id', 'default')
+      .single()
+      .then(({ data }) => setBusiness(data || null));
+  }, [session]);
 
   useEffect(() => {
     if (session === null) router.replace('/login');
@@ -43,7 +55,12 @@ export default function Layout({ children, title }) {
     <div className="min-h-screen flex flex-col md:flex-row">
       <aside className="md:w-60 shrink-0 bg-ink text-paper flex md:flex-col justify-between">
         <div className="p-5">
-          <div className="font-bold text-lg tracking-tight">دفتر حساب</div>
+          <div className="flex items-center gap-2">
+            {business?.logo_url && (
+              <img src={business.logo_url} alt="لوگو" className="w-8 h-8 rounded object-contain bg-white" />
+            )}
+            <div className="font-bold text-lg tracking-tight">{business?.name || 'دفتر حساب'}</div>
+          </div>
           <div className="text-xs text-paper/50 mt-1">حسابداری کسب‌وکار</div>
           <nav className="mt-8 flex md:flex-col gap-1">
             {NAV.map((item) => {

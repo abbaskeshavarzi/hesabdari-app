@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { BUSINESS } from '../lib/businessInfo';
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -12,6 +11,7 @@ export default function InvoicePrint() {
   const { id } = router.query;
   const [invoice, setInvoice] = useState(undefined);
   const [items, setItems] = useState([]);
+  const [business, setBusiness] = useState(null);
 
   useEffect(() => {
     if (!id) return;
@@ -26,6 +26,12 @@ export default function InvoicePrint() {
       .select('*')
       .eq('invoice_id', id)
       .then(({ data }) => setItems(data || []));
+    supabase
+      .from('business_settings')
+      .select('*')
+      .eq('id', 'default')
+      .single()
+      .then(({ data }) => setBusiness(data || null));
   }, [id]);
 
   if (invoice === undefined) {
@@ -39,10 +45,15 @@ export default function InvoicePrint() {
     <div className="min-h-screen bg-paper py-10 px-4">
       <div className="max-w-xl mx-auto bg-white border border-line rounded-xl p-8 print:border-0 print:shadow-none">
         <div className="flex justify-between items-start border-b border-line pb-4 mb-6">
-          <div>
-            <div className="font-bold text-lg">{BUSINESS.name}</div>
-            <div className="text-xs text-ink/60 mt-1">{BUSINESS.address}</div>
-            <div className="text-xs text-ink/60" dir="ltr">{BUSINESS.phone}</div>
+          <div className="flex items-start gap-3">
+            {business && business.logo_url && (
+              <img src={business.logo_url} alt="لوگو" className="w-12 h-12 rounded object-contain" />
+            )}
+            <div>
+              <div className="font-bold text-lg">{business ? business.name : ''}</div>
+              <div className="text-xs text-ink/60 mt-1">{business ? business.address : ''}</div>
+              <div className="text-xs text-ink/60" dir="ltr">{business ? business.phone : ''}</div>
+            </div>
           </div>
           <div className="text-left">
             <div className="text-xs text-ink/50">شماره فاکتور</div>
