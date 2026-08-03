@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import MoneyInput from '../components/MoneyInput';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -136,11 +137,11 @@ export default function Invoices() {
           </div>
           <div>
             <label className="block text-xs text-ink/60 mb-1">مبلغ (تومان)</label>
-            <input
-              type="number"
+            <MoneyInput
               value={form.total_amount}
-              onChange={(e) => setForm({ ...form, total_amount: e.target.value })}
+              onChange={(v) => setForm({ ...form, total_amount: v })}
               className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
+              placeholder="0"
             />
           </div>
           <div className="sm:col-span-2">

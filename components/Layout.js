@@ -6,9 +6,11 @@ import { supabase } from '../lib/supabaseClient';
 const NAV = [
   { href: '/', label: 'داشبورد', key: '01' },
   { href: '/customers', label: 'مشتریان', key: '02' },
-  { href: '/invoices', label: 'فاکتورها', key: '03' },
-  { href: '/payments', label: 'پرداخت‌ها', key: '04' },
-  { href: '/reports', label: 'گزارش فروش', key: '05' },
+  { href: '/products', label: 'کالاها', key: '03' },
+  { href: '/inventory', label: 'انبار', key: '04' },
+  { href: '/invoices', label: 'فاکتورها', key: '05' },
+  { href: '/payments', label: 'پرداخت‌ها', key: '06' },
+  { href: '/reports', label: 'گزارش فروش', key: '07' },
 ];
 
 export default function Layout({ children, title }) {
