@@ -92,6 +92,31 @@ export default function InvoicePrint() {
     }
   }
 
+  function toInternationalIran(phone) {
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = '98' + digits.slice(1);
+    else if (!digits.startsWith('98')) digits = '98' + digits;
+    return digits;
+  }
+
+  async function sendWhatsapp() {
+    const text = buildSmsText();
+    const rawPhone = invoice.customers && invoice.customers.phone ? invoice.customers.phone.replace(/\s/g, '') : '';
+    const encoded = encodeURIComponent(text);
+    if (rawPhone) {
+      const intlPhone = toInternationalIran(rawPhone);
+      window.open('https://wa.me/' + intlPhone + '?text=' + encoded, '_blank');
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch (e) {
+        alert(text);
+      }
+    }
+  }
+
   if (invoice === undefined) {
     return <p className="p-10 text-sm text-ink/50">در حال بارگذاری…</p>;
   }
@@ -163,7 +188,7 @@ export default function InvoicePrint() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-4 print:hidden">
+        <div className="grid grid-cols-2 gap-2 mt-4 print:hidden">
           <button
             onClick={() => window.print()}
             className="focus-ring bg-brass hover:bg-brassDark text-white rounded-md py-2 text-xs font-semibold"
@@ -182,6 +207,12 @@ export default function InvoicePrint() {
             className="focus-ring bg-good text-white rounded-md py-2 text-xs font-semibold"
           >
             {copied ? 'متن کپی شد ✓' : 'آماده‌سازی پیامک'}
+          </button>
+          <button
+            onClick={sendWhatsapp}
+            className="focus-ring bg-[#25D366] text-white rounded-md py-2 text-xs font-semibold"
+          >
+            ارسال با واتساپ
           </button>
         </div>
       </div>
