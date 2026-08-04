@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
+import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -77,7 +78,7 @@ export default function Reports() {
                 ) : (
                   rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.issue_date}</td>
+                      <td>{formatJalaliShort(r.issue_date)}</td>
                       <td>{r.customers?.name || '—'}</td>
                       <td>{formatToman(r.total_amount)}</td>
                     </tr>

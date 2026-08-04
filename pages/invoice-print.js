@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import { formatJalali } from '../lib/dateFormat';
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -69,7 +70,7 @@ export default function InvoicePrint() {
     const custName = invoice.customers ? invoice.customers.name : '';
     const amount = formatToman(invoice.total_amount);
     const num = invoice.invoice_number ? 'شماره ' + invoice.invoice_number + ' ' : '';
-    return name + '\nفاکتور ' + num + 'برای ' + custName + '\nمبلغ: ' + amount + '\nتاریخ: ' + invoice.issue_date;
+    return name + '\nفاکتور ' + num + 'برای ' + custName + '\nمبلغ: ' + amount + '\nتاریخ: ' + formatJalali(invoice.issue_date);
   }
 
   async function prepareSms() {
@@ -117,7 +118,7 @@ export default function InvoicePrint() {
               <div className="text-xs text-ink/50">شماره فاکتور</div>
               <div className="font-bold">{invoice.invoice_number || '—'}</div>
               <div className="text-xs text-ink/50 mt-2">تاریخ</div>
-              <div>{invoice.issue_date}</div>
+              <div>{formatJalali(invoice.issue_date)}</div>
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
+import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -319,7 +320,7 @@ export default function Invoices() {
               filtered.map((inv) => (
                 <React.Fragment key={inv.id}>
                   <tr>
-                    <td>{inv.issue_date}</td>
+                    <td>{formatJalaliShort(inv.issue_date)}</td>
                     <td className="font-medium">{inv.customers ? inv.customers.name : '—'}</td>
                     <td>{inv.invoice_number || '—'}</td>
                     <td>{formatToman(inv.total_amount)}</td>

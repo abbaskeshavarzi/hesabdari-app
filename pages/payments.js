@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
+import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -155,7 +156,7 @@ export default function Payments() {
             ) : (
               filtered.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.payment_date}</td>
+                  <td>{formatJalaliShort(p.payment_date)}</td>
                   <td className="font-medium">{p.customers?.name || '—'}</td>
                   <td className="text-good font-semibold">{formatToman(p.amount)}</td>
                   <td className="text-ink/60">{p.note || '—'}</td>

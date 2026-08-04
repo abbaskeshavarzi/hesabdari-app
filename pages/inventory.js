@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
 const emptyForm = { product_id: '', direction: 'in', qty: '', reason: '' };
@@ -144,7 +145,7 @@ export default function Inventory() {
             ) : (
               movements.map((m) => (
                 <tr key={m.id}>
-                  <td>{new Date(m.created_at).toLocaleDateString('fa-IR')}</td>
+                  <td>{formatJalaliShort(m.created_at)}</td>
                   <td className="font-medium">{m.products?.name || '—'}</td>
                   <td className={m.change_qty > 0 ? 'text-good font-semibold' : 'text-bad font-semibold'}>
                     {m.change_qty > 0 ? '+' : ''}{m.change_qty} {m.products?.unit}

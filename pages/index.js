@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -62,7 +63,7 @@ export default function Dashboard() {
               <ul className="text-sm divide-y divide-line">
                 {stats.recentInvoices.map((inv, idx) => (
                   <li key={idx} className="py-2 flex justify-between">
-                    <span>{inv.issue_date}</span>
+                    <span>{formatJalaliShort(inv.issue_date)}</span>
                     <span className="font-medium">{formatToman(inv.total_amount)}</span>
                   </li>
                 ))}
