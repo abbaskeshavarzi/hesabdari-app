@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -68,6 +69,18 @@ export default function Customers() {
     return (r.name || '').includes(q) || (r.phone || '').includes(q);
   });
 
+  function exportCsv() {
+    const headers = ['نام', 'تماس', 'آدرس', 'وضعیت', 'مبلغ'];
+    const csvRows = filtered.map((r) => [
+      r.name,
+      r.phone || '',
+      r.address || '',
+      r.balance > 0 ? 'بدهکار' : r.balance < 0 ? 'بستانکار' : 'تسویه',
+      Math.abs(r.balance),
+    ]);
+    downloadCsv('مشتریان.csv', headers, csvRows);
+  }
+
   return (
     <Layout title="مشتریان">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -77,6 +90,12 @@ export default function Customers() {
           placeholder="جست‌وجو بر اساس نام یا شماره تماس…"
           className="focus-ring rounded-md border border-line px-3 py-2 text-sm w-full sm:w-64"
         />
+        <button
+          onClick={exportCsv}
+          className="focus-ring bg-surface border border-line text-ink text-sm rounded-md px-4 py-2 font-semibold"
+        >
+          خروجی CSV
+        </button>
         <button
           onClick={() => {
             setForm(emptyForm);

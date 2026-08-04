@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import { formatJalaliShort } from '../lib/dateFormat';
+import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -178,6 +179,18 @@ export default function Invoices() {
     return (inv.customers && inv.customers.name || '').includes(q) || (inv.invoice_number || '').includes(q);
   });
 
+  function exportCsv() {
+    const headers = ['تاریخ', 'مشتری', 'شماره فاکتور', 'مبلغ', 'وضعیت'];
+    const csvRows = filtered.map((inv) => [
+      inv.issue_date,
+      inv.customers ? inv.customers.name : '',
+      inv.invoice_number || '',
+      inv.total_amount,
+      inv.status || 'معوق',
+    ]);
+    downloadCsv('فاکتورها.csv', headers, csvRows);
+  }
+
   return (
     <Layout title="فاکتورها">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -187,6 +200,12 @@ export default function Invoices() {
           placeholder="جست‌وجو بر اساس مشتری یا شماره فاکتور…"
           className="focus-ring rounded-md border border-line px-3 py-2 text-sm w-full sm:w-64"
         />
+        <button
+          onClick={exportCsv}
+          className="focus-ring bg-surface border border-line text-ink text-sm rounded-md px-4 py-2 font-semibold"
+        >
+          خروجی CSV
+        </button>
         <button
           onClick={() => (showForm ? setShowForm(false) : openNewForm())}
           className="focus-ring bg-brass hover:bg-brassDark text-white text-sm rounded-md px-4 py-2 font-semibold"
