@@ -68,7 +68,7 @@ export default function Layout({ children, title }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      <aside className="md:w-60 shrink-0 bg-ink text-paper flex md:flex-col justify-between">
+      <aside className="md:w-60 shrink-0 bg-[#12182B] text-gray-200 flex md:flex-col justify-between">
         <div className="p-5">
           <div className="flex items-center gap-2">
             {business?.logo_url && (
@@ -76,7 +76,7 @@ export default function Layout({ children, title }) {
             )}
             <div className="font-bold text-lg tracking-tight">{business?.name || 'دفتر حساب'}</div>
           </div>
-          <div className="text-xs text-paper/50 mt-1">حسابداری کسب‌وکار</div>
+          <div className="text-xs text-gray-400 mt-1">حسابداری کسب‌وکار</div>
           <nav className="mt-8 flex md:flex-col gap-1">
             {NAV.map((item) => {
               const active = router.pathname === item.href;
@@ -85,7 +85,7 @@ export default function Layout({ children, title }) {
                   key={item.href}
                   href={item.href}
                   className={`focus-ring flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                    active ? 'bg-brass text-ink font-semibold' : 'text-paper/80 hover:bg-surface/10'
+                    active ? 'bg-brass text-ink font-semibold' : 'text-gray-300 hover:bg-white/10'
                   }`}
                 >
                   <span className="text-[10px] opacity-60 font-mono">{item.key}</span>
@@ -98,13 +98,13 @@ export default function Layout({ children, title }) {
         <div className="p-5 flex items-center gap-4">
           <button
             onClick={toggleDark}
-            className="focus-ring text-xs text-paper/60 hover:text-paper flex items-center gap-1"
+            className="focus-ring text-xs text-gray-400 hover:text-white flex items-center gap-1"
           >
             {dark ? '☀️ حالت روشن' : '🌙 حالت تاریک'}
           </button>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="focus-ring text-xs text-paper/60 hover:text-paper underline underline-offset-2"
+            className="focus-ring text-xs text-gray-400 hover:text-white underline underline-offset-2"
           >
             خروج از حساب
           </button>
