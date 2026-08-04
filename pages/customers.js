@@ -89,7 +89,7 @@ export default function Customers() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-3 gap-3">
+        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-3 gap-3">
           {error && <div className="sm:col-span-3 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">نام مشتری</label>
@@ -124,7 +124,7 @@ export default function Customers() {
         </form>
       )}
 
-      <div className="bg-white border border-line rounded-xl overflow-x-auto">
+      <div className="bg-surface border border-line rounded-xl overflow-x-auto">
         <table className="ledger">
           <thead>
             <tr>

@@ -196,7 +196,7 @@ export default function Invoices() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border border-line rounded-xl p-5 mb-6">
+        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6">
           {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>}
           <div className="grid sm:grid-cols-4 gap-3 mb-4">
             <div>
@@ -204,7 +204,7 @@ export default function Invoices() {
               <select
                 value={header.customer_id}
                 onChange={(e) => setHeader({ ...header, customer_id: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-white"
+                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
               >
                 <option value="">انتخاب کنید…</option>
                 {customers.map((c) => (
@@ -234,7 +234,7 @@ export default function Invoices() {
               <select
                 value={header.status}
                 onChange={(e) => setHeader({ ...header, status: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-white"
+                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
               >
                 <option value="معوق">معوق</option>
                 <option value="نیمه‌پرداخت">نیمه‌پرداخت</option>
@@ -252,7 +252,7 @@ export default function Invoices() {
                   <select
                     value={l.product_id}
                     onChange={(e) => pickProduct(idx, e.target.value)}
-                    className="focus-ring col-span-4 rounded-md border border-line px-2 py-2 text-xs bg-white"
+                    className="focus-ring col-span-4 rounded-md border border-line px-2 py-2 text-xs bg-surface"
                   >
                     <option value="">کالا را انتخاب کنید (یا دستی وارد کنید)…</option>
                     {products.map((p) => (
@@ -299,7 +299,7 @@ export default function Invoices() {
         </form>
       )}
 
-      <div className="bg-white border border-line rounded-xl overflow-x-auto">
+      <div className="bg-surface border border-line rounded-xl overflow-x-auto">
         <table className="ledger">
           <thead>
             <tr>

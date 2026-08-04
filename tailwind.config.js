@@ -7,12 +7,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: '#17233D',
-        paper: '#EDEFEF',
-        paperDark: '#DFE2E1',
+        ink: 'var(--color-ink)',
+        paper: 'var(--color-paper)',
+        paperDark: 'var(--color-paperDark)',
+        surface: 'var(--color-surface)',
+        line: 'var(--color-line)',
         brass: '#B8873B',
         brassDark: '#96692A',
-        line: '#C7CCCB',
         good: '#2F6E4F',
         bad: '#A33B34',
       },

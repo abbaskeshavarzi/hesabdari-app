@@ -24,7 +24,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-xl border border-line p-8 shadow-sm">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface rounded-xl border border-line p-8 shadow-sm">
         <div className="text-center mb-6">
           <div className="text-lg font-bold text-ink">دفتر حساب</div>
           <div className="text-xs text-ink/50 mt-1">ورود به پنل مدیریت</div>

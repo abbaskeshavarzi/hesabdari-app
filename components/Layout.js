@@ -18,6 +18,21 @@ export default function Layout({ children, title }) {
   const router = useRouter();
   const [session, setSession] = useState(undefined);
   const [business, setBusiness] = useState(null);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    const isDark = saved === 'dark';
+    setDark(isDark);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
+
+  function toggleDark() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -57,7 +72,7 @@ export default function Layout({ children, title }) {
         <div className="p-5">
           <div className="flex items-center gap-2">
             {business?.logo_url && (
-              <img src={business.logo_url} alt="لوگو" className="w-8 h-8 rounded object-contain bg-white" />
+              <img src={business.logo_url} alt="لوگو" className="w-8 h-8 rounded object-contain bg-surface" />
             )}
             <div className="font-bold text-lg tracking-tight">{business?.name || 'دفتر حساب'}</div>
           </div>
@@ -70,7 +85,7 @@ export default function Layout({ children, title }) {
                   key={item.href}
                   href={item.href}
                   className={`focus-ring flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
-                    active ? 'bg-brass text-ink font-semibold' : 'text-paper/80 hover:bg-white/10'
+                    active ? 'bg-brass text-ink font-semibold' : 'text-paper/80 hover:bg-surface/10'
                   }`}
                 >
                   <span className="text-[10px] opacity-60 font-mono">{item.key}</span>
@@ -80,7 +95,13 @@ export default function Layout({ children, title }) {
             })}
           </nav>
         </div>
-        <div className="p-5">
+        <div className="p-5 flex items-center gap-4">
+          <button
+            onClick={toggleDark}
+            className="focus-ring text-xs text-paper/60 hover:text-paper flex items-center gap-1"
+          >
+            {dark ? '☀️ حالت روشن' : '🌙 حالت تاریک'}
+          </button>
           <button
             onClick={() => supabase.auth.signOut()}
             className="focus-ring text-xs text-paper/60 hover:text-paper underline underline-offset-2"

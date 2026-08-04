@@ -43,19 +43,19 @@ export default function Dashboard() {
         <p className="text-ink/50 text-sm">در حال بارگذاری…</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-line p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">تعداد مشتریان</div>
             <div className="text-2xl font-bold">{stats.totalCustomers}</div>
           </div>
-          <div className="bg-white rounded-xl border border-line p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">مطالبات باز</div>
             <div className="text-2xl font-bold text-bad">{formatToman(stats.totalOwed)}</div>
           </div>
-          <div className="bg-white rounded-xl border border-line p-5">
+          <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">فروش این ماه</div>
             <div className="text-2xl font-bold text-good">{formatToman(stats.monthSales)}</div>
           </div>
-          <div className="sm:col-span-3 bg-white rounded-xl border border-line p-5">
+          <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
             <div className="text-sm font-semibold mb-3">آخرین فاکتورها</div>
             {stats.recentInvoices.length === 0 ? (
               <p className="text-xs text-ink/40">هنوز فاکتوری ثبت نشده است.</p>

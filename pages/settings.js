@@ -82,7 +82,7 @@ export default function Settings() {
           {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
           {message && <div className="text-good text-xs bg-good/10 rounded-md px-3 py-2 mb-4">{message}</div>}
 
-          <div className="bg-white border border-line rounded-xl p-5 mb-6">
+          <div className="bg-surface border border-line rounded-xl p-5 mb-6">
             <div className="text-sm font-semibold mb-3">لوگوی کسب‌وکار</div>
             <div className="flex items-center gap-4">
               {form.logo_url ? (
@@ -100,7 +100,7 @@ export default function Settings() {
             <p className="text-xs text-ink/40 mt-3">این لوگو روی فاکتور چاپی نمایش داده می‌شود.</p>
           </div>
 
-          <form onSubmit={handleSave} className="bg-white border border-line rounded-xl p-5 space-y-3">
+          <form onSubmit={handleSave} className="bg-surface border border-line rounded-xl p-5 space-y-3">
             <div>
               <label className="block text-xs text-ink/60 mb-1">نام کسب‌وکار</label>
               <input

@@ -77,14 +77,14 @@ export default function Inventory() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
+        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
           {error && <div className="sm:col-span-4 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">کالا</label>
             <select
               value={form.product_id}
               onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-white"
+              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
             >
               <option value="">انتخاب کنید…</option>
               {products.map((p) => (
@@ -97,7 +97,7 @@ export default function Inventory() {
             <select
               value={form.direction}
               onChange={(e) => setForm({ ...form, direction: e.target.value })}
-              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-white"
+              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
             >
               <option value="in">ورود کالا (افزایش)</option>
               <option value="out">خروج کالا (کاهش)</option>
@@ -127,7 +127,7 @@ export default function Inventory() {
         </form>
       )}
 
-      <div className="bg-white border border-line rounded-xl overflow-x-auto">
+      <div className="bg-surface border border-line rounded-xl overflow-x-auto">
         <table className="ledger">
           <thead>
             <tr>

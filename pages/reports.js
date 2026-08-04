@@ -41,7 +41,7 @@ export default function Reports() {
 
   return (
     <Layout title="گزارش فروش دوره‌ای">
-      <form onSubmit={runReport} className="bg-white border border-line rounded-xl p-5 mb-6 flex flex-wrap items-end gap-3">
+      <form onSubmit={runReport} className="bg-surface border border-line rounded-xl p-5 mb-6 flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs text-ink/60 mb-1">از تاریخ</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="focus-ring rounded-md border border-line px-3 py-2 text-sm" />
@@ -61,7 +61,7 @@ export default function Reports() {
             <span className="text-sm">مجموع فروش در این بازه</span>
             <span className="text-xl font-bold">{formatToman(total)}</span>
           </div>
-          <div className="bg-white border border-line rounded-xl overflow-x-auto">
+          <div className="bg-surface border border-line rounded-xl overflow-x-auto">
             <table className="ledger">
               <thead>
                 <tr>

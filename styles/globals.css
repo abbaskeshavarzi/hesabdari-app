@@ -4,6 +4,22 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-ink: #17233D;
+  --color-paper: #EDEFEF;
+  --color-paperDark: #DFE2E1;
+  --color-surface: #ffffff;
+  --color-line: #C7CCCB;
+}
+
+html.dark {
+  --color-ink: #E5E7EB;
+  --color-paper: #0B0F17;
+  --color-paperDark: #131826;
+  --color-surface: #131826;
+  --color-line: #263042;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -11,9 +27,10 @@
 html, body {
   padding: 0;
   margin: 0;
-  background: #EDEFEF;
-  color: #17233D;
+  background: var(--color-paper);
+  color: var(--color-ink);
   font-family: 'Vazirmatn', Tahoma, sans-serif;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 body {
@@ -25,9 +42,8 @@ body {
   color: #fff;
 }
 
-/* thin ledger-style dividers used across tables/cards */
 .ledger-rule {
-  border-top: 1px solid #C7CCCB;
+  border-top: 1px solid var(--color-line);
 }
 
 .focus-ring:focus-visible {
@@ -47,15 +63,19 @@ table.ledger th {
   font-size: 0.8rem;
   letter-spacing: 0.02em;
   padding: 10px 12px;
-  border-bottom: 1px solid #C7CCCB;
+  border-bottom: 1px solid var(--color-line);
+}
+
+html.dark table.ledger th {
+  color: #94A3B8;
 }
 
 table.ledger td {
   padding: 12px;
-  border-bottom: 1px solid #DFE2E1;
+  border-bottom: 1px solid var(--color-paperDark);
   font-size: 0.92rem;
 }
 
 table.ledger tbody tr:hover {
-  background: #E4E7E6;
+  background: var(--color-paperDark);
 }
