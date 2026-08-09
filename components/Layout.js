@@ -12,8 +12,9 @@ const NAV = [
   { href: '/payments', label: 'پرداخت‌ها', key: '06' },
   { href: '/expenses', label: 'هزینه‌ها', key: '07' },
   { href: '/reports', label: 'گزارش فروش', key: '08' },
-  { href: '/profit-loss', label: 'سود و زیان', key: '09' },
-  { href: '/settings', label: 'تنظیمات', key: '10' },
+  { href: '/best-performers', label: 'پرفروش‌ترین‌ها', key: '09' },
+  { href: '/profit-loss', label: 'سود و زیان', key: '10' },
+  { href: '/settings', label: 'تنظیمات', key: '11' },
 ];
 
 export default function Layout({ children, title }) {
