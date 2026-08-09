@@ -1,0 +1,33 @@
+{
+  "name": "دفتر حساب - حسابداری کسب‌وکار",
+  "short_name": "دفتر حساب",
+  "description": "سامانه حسابداری کسب‌وکار: مشتریان، فاکتور، انبار و گزارش‌ها",
+  "start_url": "/hesabdari-app/",
+  "scope": "/hesabdari-app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EDEFEF",
+  "theme_color": "#17233D",
+  "dir": "rtl",
+  "lang": "fa",
+  "icons": [
+    {
+      "src": "/hesabdari-app/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/hesabdari-app/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/hesabdari-app/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

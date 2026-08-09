@@ -7,5 +7,11 @@ export default function App({ Component, pageProps }) {
     document.documentElement.classList.toggle('dark', saved === 'dark');
   }, []);
 
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/hesabdari-app/sw.js').catch(() => {});
+    }
+  }, []);
+
   return <Component {...pageProps} />;
 }
