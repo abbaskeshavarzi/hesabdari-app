@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
+import JalaliDatePicker from '../components/JalaliDatePicker';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
@@ -152,11 +153,10 @@ export default function Expenses() {
           </div>
           <div>
             <label className="block text-xs text-ink/60 mb-1">تاریخ</label>
-            <input
-              type="date"
+            <JalaliDatePicker
               value={form.expense_date}
-              onChange={(e) => setForm({ ...form, expense_date: e.target.value })}
-              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
+              onChange={(v) => setForm({ ...form, expense_date: v })}
+              className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm text-right bg-surface"
             />
           </div>
           <div>

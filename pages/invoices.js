@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
+import JalaliDatePicker from '../components/JalaliDatePicker';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
@@ -241,11 +242,10 @@ export default function Invoices() {
             </div>
             <div>
               <label className="block text-xs text-ink/60 mb-1">تاریخ صدور</label>
-              <input
-                type="date"
+              <JalaliDatePicker
                 value={header.issue_date}
-                onChange={(e) => setHeader({ ...header, issue_date: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
+                onChange={(v) => setHeader({ ...header, issue_date: v })}
+                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm text-right bg-surface"
               />
             </div>
             <div>

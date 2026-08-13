@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
+import JalaliDatePicker from '../components/JalaliDatePicker';
 import { supabase } from '../lib/supabaseClient';
 
 function formatToman(n) {
@@ -72,11 +73,11 @@ export default function BestPerformers() {
       <form onSubmit={runReport} className="bg-surface border border-line rounded-xl p-5 mb-6 flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs text-ink/60 mb-1">از تاریخ</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="focus-ring rounded-md border border-line px-3 py-2 text-sm" />
+          <JalaliDatePicker value={from} onChange={setFrom} />
         </div>
         <div>
           <label className="block text-xs text-ink/60 mb-1">تا تاریخ</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="focus-ring rounded-md border border-line px-3 py-2 text-sm" />
+          <JalaliDatePicker value={to} onChange={setTo} />
         </div>
         <button disabled={loading} className="focus-ring bg-brass hover:bg-brassDark text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-60">
           {loading ? 'در حال محاسبه…' : 'نمایش گزارش'}
