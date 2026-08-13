@@ -48,16 +48,28 @@ export default function InvoicePrint() {
       }
       window.scrollTo(0, 0);
       const el = cardRef.current;
-      const canvas = await html2canvas(el, {
+      const rawCanvas = await html2canvas(el, {
         backgroundColor: '#ffffff',
         foreignObjectRendering: true,
         useCORS: true,
         scrollX: 0,
         scrollY: 0,
+        scale: 1,
       });
+
+      // بزرگ‌نمایی جداگانه برای کیفیت چاپ بهتر (بدون دخالت در رندر اصلی که باعث بریدگی می‌شد)
+      const UPSCALE = 2;
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = rawCanvas.width * UPSCALE;
+      finalCanvas.height = rawCanvas.height * UPSCALE;
+      const ctx = finalCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(rawCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+
       const link = document.createElement('a');
       link.download = 'invoice-' + (invoice.invoice_number || id) + '.png';
-      link.href = canvas.toDataURL('image/png');
+      link.href = finalCanvas.toDataURL('image/png');
       link.click();
     } catch (e) {
       alert('خطا در ساخت عکس فاکتور: ' + (e && e.message ? e.message : e));
