@@ -46,21 +46,21 @@ export default function InvoicePrint() {
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
       }
+      window.scrollTo(0, 0);
       const el = cardRef.current;
       const canvas = await html2canvas(el, {
         backgroundColor: '#ffffff',
         foreignObjectRendering: true,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
       });
       const link = document.createElement('a');
       link.download = 'invoice-' + (invoice.invoice_number || id) + '.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (e) {
-      alert('خطا در ساخت عکس فاکتور.');
+      alert('خطا در ساخت عکس فاکتور: ' + (e && e.message ? e.message : e));
     }
     setSaving(false);
   }
