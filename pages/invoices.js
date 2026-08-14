@@ -3,9 +3,13 @@ import Link from 'next/link';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
+import Pagination from '../components/Pagination';
+import { friendlyError } from '../lib/errorMessages';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
+
+const PAGE_SIZE = 15;
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -33,6 +37,7 @@ export default function Invoices() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
@@ -116,7 +121,7 @@ export default function Invoices() {
     setSubmitting(false);
 
     if (rpcErr) {
-      return setError(rpcErr.message || 'خطا در ثبت فاکتور.');
+      return setError(friendlyError(rpcErr, 'خطا در ثبت فاکتور.'));
     }
 
     setShowForm(false);
@@ -124,8 +129,12 @@ export default function Invoices() {
   }
 
   async function deleteRow(id) {
-    if (!confirm('این فاکتور حذف شود؟ (توجه: موجودی انبار خودکار برنمی‌گردد)')) return;
-    await supabase.from('invoices').delete().eq('id', id);
+    if (!confirm('این فاکتور حذف شود؟ موجودی کالاهای آن به‌صورت خودکار به انبار برمی‌گردد.')) return;
+    const { error: delErr } = await supabase.rpc('delete_invoice_and_restore_stock', { p_invoice_id: id });
+    if (delErr) {
+      setError(friendlyError(delErr, 'خطا در حذف فاکتور.'));
+      return;
+    }
     load();
   }
 
@@ -157,6 +166,13 @@ export default function Invoices() {
     if (!q) return true;
     return (inv.customers && inv.customers.name || '').includes(q) || (inv.invoice_number || '').includes(q);
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function exportCsv() {
     const headers = ['تاریخ', 'مشتری', 'شماره فاکتور', 'مبلغ', 'وضعیت'];
@@ -192,6 +208,10 @@ export default function Invoices() {
           {showForm ? 'بستن فرم' : '+ فاکتور جدید'}
         </button>
       </div>
+
+      {!showForm && error && (
+        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6">
@@ -311,10 +331,10 @@ export default function Invoices() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : pageRows.length === 0 ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">فاکتوری یافت نشد.</td></tr>
             ) : (
-              filtered.map((inv) => (
+              pageRows.map((inv) => (
                 <React.Fragment key={inv.id}>
                   <tr>
                     <td>{formatJalaliShort(inv.issue_date)}</td>
@@ -371,6 +391,7 @@ export default function Invoices() {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
     </Layout>
   );

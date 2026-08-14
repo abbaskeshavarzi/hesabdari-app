@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import Pagination from '../components/Pagination';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
+import { friendlyError } from '../lib/errorMessages';
+
+const PAGE_SIZE = 15;
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -16,6 +20,7 @@ export default function Customers() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
@@ -40,12 +45,12 @@ export default function Customers() {
         .from('customers')
         .update({ name: form.name, phone: form.phone, address: form.address })
         .eq('id', form.id);
-      if (error) return setError('خطا در ویرایش مشتری.');
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش مشتری.'));
     } else {
       const { error } = await supabase
         .from('customers')
         .insert({ name: form.name, phone: form.phone, address: form.address });
-      if (error) return setError('خطا در ثبت مشتری.');
+      if (error) return setError(friendlyError(error, 'خطا در ثبت مشتری.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -59,7 +64,8 @@ export default function Customers() {
 
   async function deleteRow(id) {
     if (!confirm('این مشتری و همه فاکتورهای مرتبط حذف شود؟')) return;
-    await supabase.from('customers').delete().eq('id', id);
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) return setError(friendlyError(error, 'خطا در حذف مشتری.'));
     load();
   }
 
@@ -68,6 +74,13 @@ export default function Customers() {
     if (!q) return true;
     return (r.name || '').includes(q) || (r.phone || '').includes(q);
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function exportCsv() {
     const headers = ['نام', 'تماس', 'آدرس', 'وضعیت', 'مبلغ'];
@@ -158,10 +171,10 @@ export default function Customers() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : pageRows.length === 0 ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">موردی یافت نشد.</td></tr>
             ) : (
-              filtered.map((r) => (
+              pageRows.map((r) => (
                 <tr key={r.customer_id}>
                   <td className="font-medium">{r.name}</td>
                   <td dir="ltr" className="text-left">{r.phone || '—'}</td>
@@ -185,6 +198,7 @@ export default function Customers() {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
     </Layout>
   );

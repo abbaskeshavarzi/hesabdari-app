@@ -3,8 +3,12 @@ import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import { formatJalaliShort } from '../lib/dateFormat';
+import Pagination from '../components/Pagination';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
+import { friendlyError } from '../lib/errorMessages';
+
+const PAGE_SIZE = 15;
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -26,6 +30,7 @@ export default function Expenses() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
@@ -55,7 +60,7 @@ export default function Expenses() {
           description: form.description,
         })
         .eq('id', form.id);
-      if (error) return setError('خطا در ویرایش هزینه.');
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش هزینه.'));
     } else {
       const { error } = await supabase.from('expenses').insert({
         category: form.category,
@@ -63,7 +68,7 @@ export default function Expenses() {
         expense_date: form.expense_date,
         description: form.description,
       });
-      if (error) return setError('خطا در ثبت هزینه.');
+      if (error) return setError(friendlyError(error, 'خطا در ثبت هزینه.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -83,7 +88,8 @@ export default function Expenses() {
 
   async function deleteRow(id) {
     if (!confirm('این هزینه حذف شود؟')) return;
-    await supabase.from('expenses').delete().eq('id', id);
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (error) return setError(friendlyError(error, 'خطا در حذف هزینه.'));
     load();
   }
 
@@ -92,6 +98,13 @@ export default function Expenses() {
     if (!q) return true;
     return (r.category || '').includes(q) || (r.description || '').includes(q);
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function exportCsv() {
     const headers = ['تاریخ', 'دسته', 'مبلغ', 'توضیحات'];
@@ -126,6 +139,10 @@ export default function Expenses() {
           </button>
         </div>
       </div>
+
+      {!showForm && error && (
+        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
@@ -189,10 +206,10 @@ export default function Expenses() {
           <tbody>
             {loading ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : pageRows.length === 0 ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">هزینه‌ای ثبت نشده است.</td></tr>
             ) : (
-              filtered.map((r) => (
+              pageRows.map((r) => (
                 <tr key={r.id}>
                   <td>{formatJalaliShort(r.expense_date)}</td>
                   <td className="font-medium">{r.category}</td>
@@ -207,6 +224,7 @@ export default function Expenses() {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
     </Layout>
   );

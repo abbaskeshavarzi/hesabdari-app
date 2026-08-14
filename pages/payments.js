@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
+import Pagination from '../components/Pagination';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
+import { friendlyError } from '../lib/errorMessages';
+
+const PAGE_SIZE = 15;
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -24,6 +28,7 @@ export default function Payments() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
@@ -54,7 +59,7 @@ export default function Payments() {
       payment_date: form.payment_date,
       note: form.note,
     });
-    if (error) return setError('خطا در ثبت پرداخت.');
+    if (error) return setError(friendlyError(error, 'خطا در ثبت پرداخت.'));
     setForm(emptyForm);
     setShowForm(false);
     load();
@@ -62,7 +67,8 @@ export default function Payments() {
 
   async function deleteRow(id) {
     if (!confirm('این پرداخت حذف شود؟')) return;
-    await supabase.from('payments').delete().eq('id', id);
+    const { error } = await supabase.from('payments').delete().eq('id', id);
+    if (error) return setError(friendlyError(error, 'خطا در حذف پرداخت.'));
     load();
   }
 
@@ -71,6 +77,13 @@ export default function Payments() {
     if (!q) return true;
     return (p.customers?.name || '').includes(q) || (p.note || '').includes(q);
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <Layout title="پرداخت‌ها">
@@ -88,6 +101,10 @@ export default function Payments() {
           {showForm ? 'بستن فرم' : '+ ثبت پرداخت جدید'}
         </button>
       </div>
+
+      {!showForm && error && (
+        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
@@ -151,10 +168,10 @@ export default function Payments() {
           <tbody>
             {loading ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : pageRows.length === 0 ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">پرداختی یافت نشد.</td></tr>
             ) : (
-              filtered.map((p) => (
+              pageRows.map((p) => (
                 <tr key={p.id}>
                   <td>{formatJalaliShort(p.payment_date)}</td>
                   <td className="font-medium">{p.customers?.name || '—'}</td>
@@ -168,6 +185,7 @@ export default function Payments() {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
     </Layout>
   );

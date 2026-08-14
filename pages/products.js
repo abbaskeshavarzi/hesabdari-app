@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import Pagination from '../components/Pagination';
 import MoneyInput from '../components/MoneyInput';
 import { supabase } from '../lib/supabaseClient';
+import { friendlyError } from '../lib/errorMessages';
+
+const PAGE_SIZE = 15;
 
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
@@ -17,6 +21,7 @@ export default function Products() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
@@ -41,7 +46,7 @@ export default function Products() {
         .from('products')
         .update({ name: form.name, unit: form.unit, price: Number(form.price) })
         .eq('id', form.id);
-      if (error) return setError('خطا در ویرایش کالا.');
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش کالا.'));
     } else {
       const { error } = await supabase.from('products').insert({
         name: form.name,
@@ -49,7 +54,7 @@ export default function Products() {
         price: Number(form.price),
         stock_qty: Number(form.stock_qty || 0),
       });
-      if (error) return setError('خطا در ثبت کالا.');
+      if (error) return setError(friendlyError(error, 'خطا در ثبت کالا.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -63,11 +68,19 @@ export default function Products() {
 
   async function deleteRow(id) {
     if (!confirm('این کالا حذف شود؟')) return;
-    await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) return setError(friendlyError(error, 'خطا در حذف کالا. اگر این کالا در فاکتوری استفاده شده، ابتدا آن فاکتور را حذف کنید.'));
     load();
   }
 
   const filtered = rows.filter((r) => !search.trim() || (r.name || '').includes(search.trim()));
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <Layout title="کالاها">
@@ -88,6 +101,10 @@ export default function Products() {
           {showForm ? 'بستن فرم' : '+ کالای جدید'}
         </button>
       </div>
+
+      {!showForm && error && (
+        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
@@ -157,10 +174,10 @@ export default function Products() {
           <tbody>
             {loading ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : pageRows.length === 0 ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">کالایی یافت نشد.</td></tr>
             ) : (
-              filtered.map((p) => (
+              pageRows.map((p) => (
                 <tr key={p.id}>
                   <td className="font-medium">{p.name}</td>
                   <td>{p.unit}</td>
@@ -177,6 +194,7 @@ export default function Products() {
             )}
           </tbody>
         </table>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
     </Layout>
   );

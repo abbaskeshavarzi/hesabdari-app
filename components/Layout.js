@@ -14,6 +14,7 @@ const NAV = [
   { href: '/reports', label: 'گزارش فروش', key: '08' },
   { href: '/best-performers', label: 'پرفروش‌ترین‌ها', key: '09' },
   { href: '/profit-loss', label: 'سود و زیان', key: '10' },
+  { href: '/backup', label: 'پشتیبان‌گیری', key: '12' },
   { href: '/settings', label: 'تنظیمات', key: '11' },
 ];
 
@@ -23,6 +24,19 @@ export default function Layout({ children, title }) {
   const [business, setBusiness] = useState(null);
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    setIsOffline(!navigator.onLine);
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -184,6 +198,12 @@ export default function Layout({ children, title }) {
         </div>
       </aside>
       <main className="flex-1 p-4 md:p-10">
+        {isOffline && (
+          <div className="bg-brass/15 border border-brass/40 text-ink text-xs rounded-md px-3 py-2 mb-4 flex items-center gap-2">
+            <span>📶</span>
+            <span>اتصال اینترنت قطع است. صفحاتی که قبلاً باز کرده‌اید قابل مشاهده‌اند، ولی ثبت یا ویرایش اطلاعات نیاز به اینترنت دارد.</span>
+          </div>
+        )}
         {title && <h1 className="text-xl font-bold mb-6">{title}</h1>}
         {children}
       </main>
