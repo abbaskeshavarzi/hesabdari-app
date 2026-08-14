@@ -71,7 +71,7 @@ export default function Layout({ children, title }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      <aside className="md:w-60 shrink-0 bg-[#12182B] text-gray-200 flex md:flex-col justify-between">
+      <aside className="md:w-60 shrink-0 bg-[#12182B] text-gray-200 flex flex-col">
         <div className="p-5">
           <div className="flex items-center gap-2">
             {business?.logo_url && (
@@ -80,7 +80,7 @@ export default function Layout({ children, title }) {
             <div className="font-bold text-lg tracking-tight">{business?.name || 'دفتر حساب'}</div>
           </div>
           <div className="text-xs text-gray-400 mt-1">حسابداری کسب‌وکار</div>
-          <nav className="mt-8 flex md:flex-col gap-1">
+          <nav className="mt-8 flex flex-wrap md:flex-col gap-1">
             {NAV.map((item) => {
               const active = router.pathname === item.href;
               return (
