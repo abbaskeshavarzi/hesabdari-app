@@ -9,7 +9,8 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/hesabdari-app/sw.js').catch(() => {});
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      navigator.serviceWorker.register(`${basePath}/sw.js`).catch(() => {});
     }
   }, []);
 

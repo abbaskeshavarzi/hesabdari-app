@@ -29,6 +29,7 @@ export default function Invoices() {
   const [lines, setLines] = useState([{ ...emptyLine }]);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
@@ -96,49 +97,26 @@ export default function Invoices() {
     if (!header.customer_id) return setError('انتخاب مشتری الزامی است.');
     if (validLines.length === 0) return setError('حداقل یک قلم کالا با مقدار معتبر لازم است.');
 
-    for (const l of validLines) {
-      if (l.product_id) {
-        const p = products.find((x) => x.id === l.product_id);
-        if (p && Number(l.quantity) > p.stock_qty) {
-          return setError('موجودی «' + p.name + '» کافی نیست (موجودی فعلی: ' + p.stock_qty + ').');
-        }
-      }
-    }
+    setSubmitting(true);
+    // این عملیات به‌صورت اتمیک روی دیتابیس انجام می‌شود: ثبت فاکتور + اقلام + کسر
+    // موجودی همه با هم موفق یا همه با هم لغو می‌شوند (بدون ریسک ناهماهنگی داده).
+    const { error: rpcErr } = await supabase.rpc('create_invoice_with_items', {
+      p_customer_id: header.customer_id,
+      p_invoice_number: header.invoice_number || null,
+      p_issue_date: header.issue_date,
+      p_description: header.description,
+      p_status: header.status,
+      p_items: validLines.map((l) => ({
+        product_id: l.product_id || null,
+        product_name: l.product_name,
+        quantity: Number(l.quantity),
+        unit_price: Number(l.unit_price) || 0,
+      })),
+    });
+    setSubmitting(false);
 
-    const { data: invoice, error: invErr } = await supabase
-      .from('invoices')
-      .insert({
-        customer_id: header.customer_id,
-        invoice_number: header.invoice_number || null,
-        issue_date: header.issue_date,
-        total_amount: total,
-        description: header.description,
-        status: header.status,
-      })
-      .select()
-      .single();
-    if (invErr || !invoice) return setError('خطا در ثبت فاکتور.');
-
-    const itemRows = validLines.map((l) => ({
-      invoice_id: invoice.id,
-      product_id: l.product_id || null,
-      product_name: l.product_name,
-      quantity: Number(l.quantity),
-      unit_price: Number(l.unit_price) || 0,
-    }));
-    const { error: itemsErr } = await supabase.from('invoice_items').insert(itemRows);
-    if (itemsErr) return setError('فاکتور ثبت شد ولی خطا در ثبت اقلام رخ داد.');
-
-    for (const l of validLines) {
-      if (!l.product_id) continue;
-      const p = products.find((x) => x.id === l.product_id);
-      if (!p) continue;
-      await supabase.from('stock_movements').insert({
-        product_id: l.product_id,
-        change_qty: -Number(l.quantity),
-        reason: 'فروش در فاکتور ' + (header.invoice_number || ''),
-      });
-      await supabase.from('products').update({ stock_qty: p.stock_qty - Number(l.quantity) }).eq('id', l.product_id);
+    if (rpcErr) {
+      return setError(rpcErr.message || 'خطا در ثبت فاکتور.');
     }
 
     setShowForm(false);
@@ -314,7 +292,7 @@ export default function Invoices() {
             <span className="font-bold text-lg">{formatToman(total)}</span>
           </div>
 
-          <button className="focus-ring bg-ink text-white text-sm rounded-md px-4 py-2 font-semibold">ثبت فاکتور</button>
+          <button disabled={submitting} className="focus-ring bg-ink text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-60">{submitting ? 'در حال ثبت…' : 'ثبت فاکتور'}</button>
         </form>
       )}
 
