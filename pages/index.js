@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Layout from '../components/Layout';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
@@ -18,7 +19,7 @@ export default function Dashboard() {
     const { data: balances } = await supabase.from('customer_balances').select('*');
     const { data: invoices } = await supabase
       .from('invoices')
-      .select('total_amount, issue_date')
+      .select('total_amount, issue_date, invoice_number, status, customer_id, customers(name)')
       .order('issue_date', { ascending: false });
 
     const totalCustomers = balances?.length || 0;
@@ -46,12 +47,27 @@ export default function Dashboard() {
       });
     }
 
+    // بدهکارترین مشتریان (بیشترین مطالبات باز)
+    const topDebtors = (balances || [])
+      .filter((b) => b.balance > 0)
+      .sort((a, b) => b.balance - a.balance)
+      .slice(0, 5);
+
+    // فاکتورهای معوق قدیمی‌تر از ۳۰ روز
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const overdueInvoices = (invoices || [])
+      .filter((inv) => (inv.status || 'معوق') !== 'پرداخت‌شده' && now - new Date(inv.issue_date) > THIRTY_DAYS)
+      .sort((a, b) => new Date(a.issue_date) - new Date(b.issue_date))
+      .slice(0, 5);
+
     setStats({
       totalCustomers,
       totalOwed,
       monthSales,
       recentInvoices: (invoices || []).slice(0, 5),
       monthlyChart: buckets,
+      topDebtors,
+      overdueInvoices,
     });
   }
 
@@ -95,6 +111,53 @@ export default function Dashboard() {
               );
             })()}
           </div>
+
+          {(stats.topDebtors.length > 0 || stats.overdueInvoices.length > 0) && (
+            <div className="sm:col-span-3 grid sm:grid-cols-2 gap-4">
+              <div className="bg-surface rounded-xl border border-line p-5">
+                <div className="text-sm font-semibold mb-3">بدهکارترین مشتریان</div>
+                {stats.topDebtors.length === 0 ? (
+                  <p className="text-xs text-ink/40">مطالبات بازی وجود ندارد.</p>
+                ) : (
+                  <ul className="text-sm divide-y divide-line">
+                    {stats.topDebtors.map((b) => (
+                      <li key={b.customer_id} className="py-2 flex justify-between items-center">
+                        <span>{b.name}</span>
+                        <span className="font-medium text-bad">{formatToman(b.balance)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link href="/customers" className="focus-ring text-xs text-brass hover:underline block mt-3">
+                  مشاهده همه مشتریان ←
+                </Link>
+              </div>
+              <div className="bg-surface rounded-xl border border-line p-5">
+                <div className="text-sm font-semibold mb-3">فاکتورهای معوق قدیمی (بیش از ۳۰ روز)</div>
+                {stats.overdueInvoices.length === 0 ? (
+                  <p className="text-xs text-ink/40">فاکتور معوق قدیمی‌ای وجود ندارد.</p>
+                ) : (
+                  <ul className="text-sm divide-y divide-line">
+                    {stats.overdueInvoices.map((inv, idx) => {
+                      const days = Math.floor((new Date() - new Date(inv.issue_date)) / (24 * 60 * 60 * 1000));
+                      return (
+                        <li key={idx} className="py-2 flex justify-between items-center gap-2">
+                          <span className="truncate">
+                            {inv.customers?.name || '—'} · {inv.invoice_number || ''}
+                            <span className="text-[10px] text-bad mr-1">({days} روز)</span>
+                          </span>
+                          <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <Link href="/invoices" className="focus-ring text-xs text-brass hover:underline block mt-3">
+                  مشاهده همه فاکتورها ←
+                </Link>
+              </div>
+            </div>
+          )}
 
           <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
             <div className="text-sm font-semibold mb-3">آخرین فاکتورها</div>

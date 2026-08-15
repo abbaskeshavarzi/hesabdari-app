@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
+import GlobalSearch from './GlobalSearch';
 
 const NAV = [
   { href: '/', label: 'داشبورد', key: '01' },
@@ -24,6 +25,7 @@ export default function Layout({ children, title }) {
   const [business, setBusiness] = useState(null);
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
@@ -121,22 +123,34 @@ export default function Layout({ children, title }) {
             )}
             <div className="font-bold text-base tracking-tight truncate">{business?.name || 'دفتر حساب'}</div>
           </div>
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? 'بستن منو' : 'باز کردن منو'}
-            aria-expanded={menuOpen}
-            className="focus-ring p-2 -m-2 rounded-md hover:bg-white/10 shrink-0"
-          >
-            {menuOpen ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M18 6 6 18M6 6l12 12" />
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="جست‌وجو"
+              className="focus-ring p-2 rounded-md hover:bg-white/10"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
               </svg>
-            ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            )}
-          </button>
+            </button>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label={menuOpen ? 'بستن منو' : 'باز کردن منو'}
+              aria-expanded={menuOpen}
+              className="focus-ring p-2 rounded-md hover:bg-white/10"
+            >
+              {menuOpen ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </header>
 
         {/* پنل کشویی منو */}
@@ -180,7 +194,17 @@ export default function Layout({ children, title }) {
             <div className="font-bold text-lg tracking-tight">{business?.name || 'دفتر حساب'}</div>
           </div>
           <div className="text-xs text-gray-400 mt-1">حسابداری کسب‌وکار</div>
-          <nav className="mt-8 flex flex-col gap-1">{navList()}</nav>
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="focus-ring w-full flex items-center gap-2 mt-4 rounded-md border border-white/10 px-3 py-2 text-xs text-gray-400 hover:bg-white/10 hover:text-white"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            جست‌وجو…
+          </button>
+          <nav className="mt-4 flex flex-col gap-1">{navList()}</nav>
         </div>
         <div className="p-5 flex items-center gap-4">
           <button
@@ -207,6 +231,7 @@ export default function Layout({ children, title }) {
         {title && <h1 className="text-xl font-bold mb-6">{title}</h1>}
         {children}
       </main>
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

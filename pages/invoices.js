@@ -21,6 +21,8 @@ const emptyHeader = {
   issue_date: new Date().toISOString().slice(0, 10),
   description: '',
   status: 'معوق',
+  discount_type: 'amount',
+  discount_value: '',
 };
 const emptyLine = { product_id: '', product_name: '', quantity: '1', unit_price: '' };
 
@@ -49,7 +51,7 @@ export default function Invoices() {
     const { data: prods } = await supabase.from('products').select('id, name, price, unit, stock_qty').order('name');
     const { data: invs } = await supabase
       .from('invoices')
-      .select('id, invoice_number, issue_date, total_amount, description, status, customer_id, customers(name)')
+      .select('id, invoice_number, issue_date, total_amount, discount_amount, description, status, customer_id, customers(name)')
       .order('issue_date', { ascending: false });
     setCustomers(custs || []);
     setProducts(prods || []);
@@ -94,6 +96,12 @@ export default function Invoices() {
   }
 
   const total = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unit_price) || 0), 0);
+  const discountValueNum = Number(header.discount_value) || 0;
+  let discountAmount =
+    header.discount_type === 'percent' ? (total * discountValueNum) / 100 : discountValueNum;
+  if (discountAmount < 0) discountAmount = 0;
+  if (discountAmount > total) discountAmount = total;
+  const finalTotal = total - discountAmount;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -117,6 +125,8 @@ export default function Invoices() {
         quantity: Number(l.quantity),
         unit_price: Number(l.unit_price) || 0,
       })),
+      p_discount_type: header.discount_type || 'amount',
+      p_discount_value: discountValueNum,
     });
     setSubmitting(false);
 
@@ -307,9 +317,56 @@ export default function Invoices() {
             + افزودن قلم دیگر
           </button>
 
-          <div className="flex justify-between items-center bg-ink text-paper rounded-lg px-4 py-3 mb-4">
-            <span className="text-sm">جمع کل</span>
-            <span className="font-bold text-lg">{formatToman(total)}</span>
+          <div className="grid sm:grid-cols-3 gap-3 mb-4 items-end">
+            <div>
+              <label className="block text-xs text-ink/60 mb-1">نوع تخفیف</label>
+              <select
+                value={header.discount_type}
+                onChange={(e) => setHeader({ ...header, discount_type: e.target.value })}
+                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
+              >
+                <option value="amount">مبلغ ثابت (تومان)</option>
+                <option value="percent">درصد (%)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-ink/60 mb-1">
+                میزان تخفیف {header.discount_type === 'percent' ? '(٪)' : '(تومان)'}
+              </label>
+              {header.discount_type === 'percent' ? (
+                <input
+                  type="number"
+                  value={header.discount_value}
+                  onChange={(e) => setHeader({ ...header, discount_value: e.target.value })}
+                  placeholder="0"
+                  className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
+                />
+              ) : (
+                <MoneyInput
+                  value={header.discount_value}
+                  onChange={(v) => setHeader({ ...header, discount_value: v })}
+                  className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
+                  placeholder="0"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="bg-ink text-paper rounded-lg px-4 py-3 mb-4 space-y-1.5">
+            <div className="flex justify-between items-center text-sm text-paper/70">
+              <span>جمع اقلام</span>
+              <span>{formatToman(total)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between items-center text-sm text-brass">
+                <span>تخفیف</span>
+                <span>- {formatToman(discountAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1.5 border-t border-white/10">
+              <span className="text-sm">مبلغ نهایی</span>
+              <span className="font-bold text-lg">{formatToman(finalTotal)}</span>
+            </div>
           </div>
 
           <button disabled={submitting} className="focus-ring bg-ink text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-60">{submitting ? 'در حال ثبت…' : 'ثبت فاکتور'}</button>
@@ -340,7 +397,12 @@ export default function Invoices() {
                     <td>{formatJalaliShort(inv.issue_date)}</td>
                     <td className="font-medium">{inv.customers ? inv.customers.name : '—'}</td>
                     <td>{inv.invoice_number || '—'}</td>
-                    <td>{formatToman(inv.total_amount)}</td>
+                    <td>
+                      {formatToman(inv.total_amount)}
+                      {inv.discount_amount > 0 && (
+                        <span className="block text-[10px] text-brass">با تخفیف</span>
+                      )}
+                    </td>
                     <td>
                       <select
                         value={inv.status || 'معوق'}

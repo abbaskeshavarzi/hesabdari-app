@@ -14,6 +14,7 @@ export default function InvoicePrint() {
   const [items, setItems] = useState([]);
   const [business, setBusiness] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [savingPdf, setSavingPdf] = useState(false);
   const [copied, setCopied] = useState(false);
   const cardRef = useRef(null);
 
@@ -37,6 +38,45 @@ export default function InvoicePrint() {
       .single()
       .then(({ data }) => setBusiness(data || null));
   }, [id]);
+
+  async function saveAsPdf() {
+    if (!cardRef.current) return;
+    setSavingPdf(true);
+    try {
+      const { domToPng } = await import('modern-screenshot');
+      const { jsPDF } = await import('jspdf');
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      const el = cardRef.current;
+      const cssWidth = el.offsetWidth;
+      const cssHeight = el.offsetHeight;
+
+      // همون رندر بدون بریدگی که برای عکس استفاده می‌شود، اینجا هم استفاده می‌شود
+      const dataUrl = await domToPng(el, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        width: cssWidth,
+        height: cssHeight,
+      });
+
+      // تبدیل پیکسل به میلی‌متر (بر اساس ۹۶ نقطه در اینچ استاندارد مرورگر) تا صفحه‌ی PDF
+      // دقیقاً هم‌اندازه‌ی خود فاکتور باشد، بدون حاشیه‌ی اضافه یا بریدگی
+      const mmWidth = (cssWidth * 25.4) / 96;
+      const mmHeight = (cssHeight * 25.4) / 96;
+
+      const pdf = new jsPDF({
+        orientation: mmWidth > mmHeight ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [mmWidth, mmHeight],
+      });
+      pdf.addImage(dataUrl, 'PNG', 0, 0, mmWidth, mmHeight);
+      pdf.save('invoice-' + (invoice.invoice_number || id) + '.pdf');
+    } catch (e) {
+      alert('خطا در ساخت PDF فاکتور: ' + (e && e.message ? e.message : e));
+    }
+    setSavingPdf(false);
+  }
 
   async function saveAsImage() {
     if (!cardRef.current) return;
@@ -183,6 +223,20 @@ export default function InvoicePrint() {
             </tbody>
           </table>
 
+          <div className="space-y-1.5 mb-2">
+            {invoice.discount_amount > 0 && (
+              <div className="flex justify-between items-center text-xs text-ink/60 px-1">
+                <span>جمع اقلام</span>
+                <span>{formatToman(invoice.total_amount + invoice.discount_amount)}</span>
+              </div>
+            )}
+            {invoice.discount_amount > 0 && (
+              <div className="flex justify-between items-center text-xs text-brassDark px-1">
+                <span>تخفیف</span>
+                <span>- {formatToman(invoice.discount_amount)}</span>
+              </div>
+            )}
+          </div>
           <div className="flex justify-between items-center bg-ink text-paper rounded-lg px-4 py-3">
             <span className="text-sm">مبلغ قابل پرداخت</span>
             <span className="font-bold text-lg">{formatToman(invoice.total_amount)}</span>
@@ -197,9 +251,16 @@ export default function InvoicePrint() {
             چاپ فاکتور
           </button>
           <button
+            onClick={saveAsPdf}
+            disabled={savingPdf}
+            className="focus-ring bg-ink text-white rounded-md py-2 text-xs font-semibold disabled:opacity-60"
+          >
+            {savingPdf ? 'در حال ساخت…' : 'دانلود PDF'}
+          </button>
+          <button
             onClick={saveAsImage}
             disabled={saving}
-            className="focus-ring bg-ink text-white rounded-md py-2 text-xs font-semibold disabled:opacity-60"
+            className="focus-ring bg-surface border border-line text-ink rounded-md py-2 text-xs font-semibold disabled:opacity-60"
           >
             {saving ? 'در حال ساخت…' : 'ذخیره به‌صورت عکس'}
           </button>
@@ -211,7 +272,7 @@ export default function InvoicePrint() {
           </button>
           <button
             onClick={sendWhatsapp}
-            className="focus-ring bg-[#25D366] text-white rounded-md py-2 text-xs font-semibold"
+            className="focus-ring bg-[#25D366] text-white rounded-md py-2 text-xs font-semibold col-span-2"
           >
             ارسال با واتساپ
           </button>
