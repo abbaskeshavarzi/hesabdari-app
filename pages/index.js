@@ -11,6 +11,7 @@ import { Bar } from 'react-chartjs-2';
 import Layout from '../components/Layout';
 import { CardSkeleton, ListSkeleton, SkeletonBar } from '../components/Skeleton';
 import { formatJalaliShort } from '../lib/dateFormat';
+import { friendlyError } from '../lib/errorMessages';
 import { supabase } from '../lib/supabaseClient';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -88,8 +89,19 @@ export default function Dashboard() {
     // این باعث می‌شه با زیاد شدن تعداد فاکتورها، بارگذاری داشبورد کند نشه.
     const { data, error: rpcError } = await supabase.rpc('get_dashboard_stats');
 
-    if (rpcError) {
-      setError('خطا در بارگذاری آمار داشبورد. لطفاً صفحه را رفرش کنید.');
+    if (rpcError || !data) {
+      setError(friendlyError(rpcError, 'خطا در بارگذاری آمار داشبورد. لطفاً صفحه را رفرش کنید.'));
+      // stats را به یک حالت خالی (نه null) ست می‌کنیم تا Skeleton برای همیشه نمایش داده نشه
+      // و کاربر به‌جای اسکلت بی‌پایان، صفحه‌ی خالی همراه پیام خطا رو ببینه.
+      setStats({
+        totalCustomers: 0,
+        totalOwed: 0,
+        monthSales: 0,
+        recentInvoices: [],
+        monthlyChart: [],
+        topDebtors: [],
+        overdueInvoices: [],
+      });
       return;
     }
 
