@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 
 const LOGO_MAX_DIMENSION = 512; // پیکسل — لوگو در فاکتور و هدر هیچ‌وقت بزرگ‌تر از این نمایش داده نمی‌شود
 const LOGO_JPEG_QUALITY = 0.85;
+const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 
 // عکس انتخاب‌شده را سمت مرورگر (قبل از آپلود) کوچک و فشرده می‌کند:
 // - ابعاد به حداکثر ۵۱۲×۵۱۲ محدود می‌شود (با حفظ نسبت تصویر)
@@ -103,8 +105,11 @@ export default function Settings() {
   async function handleLogoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      return setError('لطفاً یک فایل تصویری انتخاب کنید.');
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      return setError('لطفاً فقط تصویر PNG، JPG یا WebP انتخاب کنید.');
+    }
+    if (file.size > LOGO_MAX_SIZE_BYTES) {
+      return setError('حجم لوگو باید کمتر از ۲ مگابایت باشد.');
     }
     setSaving(true);
     setError('');
@@ -122,7 +127,14 @@ export default function Settings() {
       // ادامه با فایل اصلی
     }
 
-    const path = 'logo.' + ext;
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData?.user) {
+      setSaving(false);
+      return setError('برای آپلود لوگو باید دوباره وارد حساب شوید.');
+    }
+
+    const safeExt = ALLOWED_LOGO_TYPES.includes(uploadBlob.type) ? ext : 'jpg';
+    const path = `${authData.user.id}/logo.${safeExt}`;
     const { error: uploadErr } = await supabase.storage.from('logos').upload(path, uploadBlob, {
       upsert: true,
       cacheControl: '3600',

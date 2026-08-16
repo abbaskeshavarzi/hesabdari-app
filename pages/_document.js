@@ -6,6 +6,11 @@ export default function Document() {
   return (
     <Html lang="fa" dir="rtl">
       <Head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`
+          }}
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#17233D" />
         <meta name="mobile-web-app-capable" content="yes" />
