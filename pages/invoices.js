@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import Pagination from '../components/Pagination';
+import { TableSkeleton } from '../components/Skeleton';
 import { friendlyError } from '../lib/errorMessages';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
@@ -387,7 +388,7 @@ export default function Invoices() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <TableSkeleton columns={6} />
             ) : pageRows.length === 0 ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">فاکتوری یافت نشد.</td></tr>
             ) : (

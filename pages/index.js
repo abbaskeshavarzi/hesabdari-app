@@ -9,6 +9,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import Layout from '../components/Layout';
+import { CardSkeleton, ListSkeleton, SkeletonBar } from '../components/Skeleton';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
@@ -114,7 +115,29 @@ export default function Dashboard() {
         <div className="text-bad text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
       {!stats ? (
-        <p className="text-ink/50 text-sm">در حال بارگذاری…</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+          <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
+            <SkeletonBar className="h-4 w-32 mb-4" />
+            <SkeletonBar className="h-[180px] w-full" />
+          </div>
+          <div className="sm:col-span-3 grid sm:grid-cols-2 gap-4">
+            <div className="bg-surface rounded-xl border border-line p-5">
+              <SkeletonBar className="h-4 w-28 mb-3" />
+              <ListSkeleton rows={4} />
+            </div>
+            <div className="bg-surface rounded-xl border border-line p-5">
+              <SkeletonBar className="h-4 w-36 mb-3" />
+              <ListSkeleton rows={4} />
+            </div>
+          </div>
+          <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
+            <SkeletonBar className="h-4 w-24 mb-3" />
+            <ListSkeleton rows={5} />
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-surface rounded-xl border border-line p-5">

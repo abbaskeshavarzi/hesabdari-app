@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
+import { TableSkeleton } from '../components/Skeleton';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
@@ -170,7 +171,7 @@ export default function Customers() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <TableSkeleton columns={6} />
             ) : pageRows.length === 0 ? (
               <tr><td colSpan={6} className="text-center text-ink/40 py-6">موردی یافت نشد.</td></tr>
             ) : (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import JalaliDatePicker from '../components/JalaliDatePicker';
+import { TableSkeleton } from '../components/Skeleton';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
@@ -73,7 +74,7 @@ export default function Reports() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={3} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+                  <TableSkeleton columns={3} />
                 ) : rows.length === 0 ? (
                   <tr><td colSpan={3} className="text-center text-ink/40 py-6">فاکتوری در این بازه یافت نشد.</td></tr>
                 ) : (

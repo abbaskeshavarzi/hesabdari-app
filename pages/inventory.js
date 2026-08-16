@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import { TableSkeleton } from '../components/Skeleton';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
@@ -139,7 +140,7 @@ export default function Inventory() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <TableSkeleton columns={4} />
             ) : movements.length === 0 ? (
               <tr><td colSpan={4} className="text-center text-ink/40 py-6">هنوز تراکنشی ثبت نشده است.</td></tr>
             ) : (

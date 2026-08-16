@@ -4,6 +4,7 @@ import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import { formatJalaliShort } from '../lib/dateFormat';
 import Pagination from '../components/Pagination';
+import { TableSkeleton } from '../components/Skeleton';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
@@ -205,7 +206,7 @@ export default function Expenses() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <TableSkeleton columns={5} />
             ) : pageRows.length === 0 ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">هزینه‌ای ثبت نشده است.</td></tr>
             ) : (

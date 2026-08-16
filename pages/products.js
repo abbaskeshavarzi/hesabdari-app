@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
 import MoneyInput from '../components/MoneyInput';
+import { TableSkeleton } from '../components/Skeleton';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
 
@@ -173,7 +174,7 @@ export default function Products() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center text-ink/40 py-6">در حال بارگذاری…</td></tr>
+              <TableSkeleton columns={5} />
             ) : pageRows.length === 0 ? (
               <tr><td colSpan={5} className="text-center text-ink/40 py-6">کالایی یافت نشد.</td></tr>
             ) : (
