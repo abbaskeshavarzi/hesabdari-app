@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
@@ -63,10 +64,21 @@ export default function Customers() {
     setShowForm(true);
   }
 
-  async function deleteRow(id) {
-    if (!confirm('این مشتری و همه فاکتورهای مرتبط حذف شود؟')) return;
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
+
+  function askDelete(id) {
+    setConfirmDelete({ open: true, id, busy: false });
+  }
+
+  async function doDelete() {
+    const id = confirmDelete.id;
+    setConfirmDelete((c) => ({ ...c, busy: true }));
     const { error } = await supabase.from('customers').delete().eq('id', id);
-    if (error) return setError(friendlyError(error, 'خطا در حذف مشتری.'));
+    if (error) {
+      setConfirmDelete({ open: false, id: null, busy: false });
+      return setError(friendlyError(error, 'خطا در حذف مشتری.'));
+    }
+    setConfirmDelete({ open: false, id: null, busy: false });
     load();
   }
 
@@ -192,7 +204,7 @@ export default function Customers() {
                   <td>{formatToman(Math.abs(r.balance))}</td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => editRow(r)} className="focus-ring text-xs text-brass hover:underline ml-3">ویرایش</button>
-                    <button onClick={() => deleteRow(r.customer_id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(r.customer_id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
                   </td>
                 </tr>
               ))
@@ -201,6 +213,16 @@ export default function Customers() {
         </table>
         <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete.open}
+        title="حذف مشتری"
+        description="این مشتری و همه فاکتورهای مرتبط حذف شود؟ این عملیات قابل بازگشت نیست."
+        confirmLabel="حذف مشتری"
+        busy={confirmDelete.busy}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null, busy: false })}
+      />
     </Layout>
   );
 }

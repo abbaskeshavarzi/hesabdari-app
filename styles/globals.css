@@ -51,6 +51,41 @@ body {
   outline-offset: 2px;
 }
 
+/* مودال تأیید (کامپوننت ConfirmDialog) — بر پایه‌ی تگ بومی <dialog> */
+dialog.confirm-dialog {
+  border: none;
+  padding: 0;
+  margin: auto;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+dialog.confirm-dialog::backdrop {
+  background: rgba(23, 35, 61, 0.45);
+}
+
+html.dark dialog.confirm-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+dialog.confirm-dialog[open] {
+  animation: confirmDialogIn 0.15s ease-out;
+}
+
+@keyframes confirmDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 table.ledger {
   border-collapse: collapse;
   width: 100%;

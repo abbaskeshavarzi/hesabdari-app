@@ -4,6 +4,7 @@ import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
@@ -66,10 +67,21 @@ export default function Payments() {
     load();
   }
 
-  async function deleteRow(id) {
-    if (!confirm('این پرداخت حذف شود؟')) return;
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
+
+  function askDelete(id) {
+    setConfirmDelete({ open: true, id, busy: false });
+  }
+
+  async function doDelete() {
+    const id = confirmDelete.id;
+    setConfirmDelete((c) => ({ ...c, busy: true }));
     const { error } = await supabase.from('payments').delete().eq('id', id);
-    if (error) return setError(friendlyError(error, 'خطا در حذف پرداخت.'));
+    if (error) {
+      setConfirmDelete({ open: false, id: null, busy: false });
+      return setError(friendlyError(error, 'خطا در حذف پرداخت.'));
+    }
+    setConfirmDelete({ open: false, id: null, busy: false });
     load();
   }
 
@@ -179,7 +191,7 @@ export default function Payments() {
                   <td className="text-good font-semibold">{formatToman(p.amount)}</td>
                   <td className="text-ink/60">{p.note || '—'}</td>
                   <td>
-                    <button onClick={() => deleteRow(p.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(p.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
                   </td>
                 </tr>
               ))
@@ -188,6 +200,16 @@ export default function Payments() {
         </table>
         <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete.open}
+        title="حذف پرداخت"
+        description="این پرداخت حذف شود؟ این عملیات قابل بازگشت نیست."
+        confirmLabel="حذف پرداخت"
+        busy={confirmDelete.busy}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null, busy: false })}
+      />
     </Layout>
   );
 }

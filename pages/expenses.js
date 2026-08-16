@@ -5,6 +5,7 @@ import JalaliDatePicker from '../components/JalaliDatePicker';
 import { formatJalaliShort } from '../lib/dateFormat';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
@@ -87,10 +88,21 @@ export default function Expenses() {
     setShowForm(true);
   }
 
-  async function deleteRow(id) {
-    if (!confirm('این هزینه حذف شود؟')) return;
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
+
+  function askDelete(id) {
+    setConfirmDelete({ open: true, id, busy: false });
+  }
+
+  async function doDelete() {
+    const id = confirmDelete.id;
+    setConfirmDelete((c) => ({ ...c, busy: true }));
     const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (error) return setError(friendlyError(error, 'خطا در حذف هزینه.'));
+    if (error) {
+      setConfirmDelete({ open: false, id: null, busy: false });
+      return setError(friendlyError(error, 'خطا در حذف هزینه.'));
+    }
+    setConfirmDelete({ open: false, id: null, busy: false });
     load();
   }
 
@@ -218,7 +230,7 @@ export default function Expenses() {
                   <td className="text-ink/60">{r.description || '—'}</td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => editRow(r)} className="focus-ring text-xs text-brass hover:underline ml-3">ویرایش</button>
-                    <button onClick={() => deleteRow(r.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(r.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
                   </td>
                 </tr>
               ))
@@ -227,6 +239,16 @@ export default function Expenses() {
         </table>
         <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete.open}
+        title="حذف هزینه"
+        description="این هزینه حذف شود؟ این عملیات قابل بازگشت نیست."
+        confirmLabel="حذف هزینه"
+        busy={confirmDelete.busy}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null, busy: false })}
+      />
     </Layout>
   );
 }

@@ -5,6 +5,7 @@ import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { friendlyError } from '../lib/errorMessages';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
@@ -36,6 +37,7 @@ export default function Invoices() {
   const [lines, setLines] = useState([{ ...emptyLine }]);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
@@ -72,6 +74,7 @@ export default function Invoices() {
     setHeader({ ...emptyHeader, invoice_number: nextInvoiceNumber(invoices) });
     setLines([{ ...emptyLine }]);
     setError('');
+    setFieldErrors({});
     setShowForm(true);
   }
 
@@ -104,12 +107,45 @@ export default function Invoices() {
   if (discountAmount > total) discountAmount = total;
   const finalTotal = total - discountAmount;
 
+  function validateForm() {
+    const errs = {};
+    if (!header.customer_id) errs.customer_id = 'انتخاب مشتری الزامی است.';
+    if (!header.issue_date) errs.issue_date = 'تاریخ صدور الزامی است.';
+
+    const lineErrors = {};
+    lines.forEach((l, idx) => {
+      const hasName = l.product_name.trim().length > 0;
+      const qty = Number(l.quantity);
+      const price = Number(l.unit_price);
+      if (!hasName && !l.product_id && !String(l.quantity).trim() && !String(l.unit_price).trim()) {
+        return; // ردیف کاملاً خالی، نادیده گرفته می‌شه (نه خطا)
+      }
+      if (!hasName) lineErrors[idx] = 'شرح کالا را وارد کنید.';
+      else if (!(qty > 0)) lineErrors[idx] = 'تعداد باید بزرگ‌تر از صفر باشد.';
+      else if (!(price >= 0)) lineErrors[idx] = 'قیمت واحد نمی‌تواند منفی باشد.';
+    });
+
+    const validLines = lines.filter(
+      (l) => l.product_name.trim() && Number(l.quantity) > 0 && Number(l.unit_price) >= 0
+    );
+    if (validLines.length === 0 && Object.keys(lineErrors).length === 0) {
+      errs.lines = 'حداقل یک قلم کالا با مقدار معتبر لازم است.';
+    }
+
+    return { errs, lineErrors, validLines };
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    const validLines = lines.filter((l) => l.product_name.trim() && Number(l.quantity) > 0);
-    if (!header.customer_id) return setError('انتخاب مشتری الزامی است.');
-    if (validLines.length === 0) return setError('حداقل یک قلم کالا با مقدار معتبر لازم است.');
+    const { errs, lineErrors, validLines } = validateForm();
+
+    if (Object.keys(errs).length > 0 || Object.keys(lineErrors).length > 0) {
+      setFieldErrors({ ...errs, lineErrors });
+      setError('لطفاً خطاهای مشخص‌شده در فرم را برطرف کنید.');
+      return;
+    }
+    setFieldErrors({});
 
     setSubmitting(true);
     // این عملیات به‌صورت اتمیک روی دیتابیس انجام می‌شود: ثبت فاکتور + اقلام + کسر
@@ -139,13 +175,22 @@ export default function Invoices() {
     load();
   }
 
-  async function deleteRow(id) {
-    if (!confirm('این فاکتور حذف شود؟ موجودی کالاهای آن به‌صورت خودکار به انبار برمی‌گردد.')) return;
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
+
+  function askDelete(id) {
+    setConfirmDelete({ open: true, id, busy: false });
+  }
+
+  async function doDelete() {
+    const id = confirmDelete.id;
+    setConfirmDelete((c) => ({ ...c, busy: true }));
     const { error: delErr } = await supabase.rpc('delete_invoice_and_restore_stock', { p_invoice_id: id });
     if (delErr) {
+      setConfirmDelete({ open: false, id: null, busy: false });
       setError(friendlyError(delErr, 'خطا در حذف فاکتور.'));
       return;
     }
+    setConfirmDelete({ open: false, id: null, busy: false });
     load();
   }
 
@@ -221,45 +266,73 @@ export default function Invoices() {
       </div>
 
       {!showForm && error && (
-        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div role="alert" aria-live="assertive" className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6">
-          {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>}
+        <form onSubmit={handleSubmit} noValidate className="bg-surface border border-line rounded-xl p-5 mb-6">
+          {error && (
+            <div role="alert" aria-live="assertive" className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>
+          )}
           <div className="grid sm:grid-cols-4 gap-3 mb-4">
             <div>
-              <label className="block text-xs text-ink/60 mb-1">مشتری</label>
+              <label htmlFor="inv-customer" className="block text-xs text-ink/60 mb-1">مشتری *</label>
               <select
+                id="inv-customer"
                 value={header.customer_id}
-                onChange={(e) => setHeader({ ...header, customer_id: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
+                onChange={(e) => {
+                  setHeader({ ...header, customer_id: e.target.value });
+                  if (fieldErrors.customer_id) setFieldErrors((f) => ({ ...f, customer_id: undefined }));
+                }}
+                required
+                aria-required="true"
+                aria-invalid={!!fieldErrors.customer_id}
+                aria-describedby={fieldErrors.customer_id ? 'inv-customer-err' : undefined}
+                className={`focus-ring w-full rounded-md border px-3 py-2 text-sm bg-surface ${
+                  fieldErrors.customer_id ? 'border-bad' : 'border-line'
+                }`}
               >
                 <option value="">انتخاب کنید…</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+              {fieldErrors.customer_id && (
+                <p id="inv-customer-err" className="text-bad text-[11px] mt-1">{fieldErrors.customer_id}</p>
+              )}
             </div>
             <div>
-              <label className="block text-xs text-ink/60 mb-1">شماره فاکتور (خودکار، قابل ویرایش)</label>
+              <label htmlFor="inv-number" className="block text-xs text-ink/60 mb-1">شماره فاکتور (خودکار، قابل ویرایش)</label>
               <input
+                id="inv-number"
                 value={header.invoice_number}
                 onChange={(e) => setHeader({ ...header, invoice_number: e.target.value })}
                 className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-ink/60 mb-1">تاریخ صدور</label>
+              <label htmlFor="inv-date" className="block text-xs text-ink/60 mb-1">تاریخ صدور *</label>
               <JalaliDatePicker
+                id="inv-date"
                 value={header.issue_date}
-                onChange={(v) => setHeader({ ...header, issue_date: v })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm text-right bg-surface"
+                onChange={(v) => {
+                  setHeader({ ...header, issue_date: v });
+                  if (fieldErrors.issue_date) setFieldErrors((f) => ({ ...f, issue_date: undefined }));
+                }}
+                aria-invalid={!!fieldErrors.issue_date}
+                aria-describedby={fieldErrors.issue_date ? 'inv-date-err' : undefined}
+                className={`focus-ring w-full rounded-md border px-3 py-2 text-sm text-right bg-surface ${
+                  fieldErrors.issue_date ? 'border-bad' : 'border-line'
+                }`}
               />
+              {fieldErrors.issue_date && (
+                <p id="inv-date-err" className="text-bad text-[11px] mt-1">{fieldErrors.issue_date}</p>
+              )}
             </div>
             <div>
-              <label className="block text-xs text-ink/60 mb-1">وضعیت پرداخت</label>
+              <label htmlFor="inv-status" className="block text-xs text-ink/60 mb-1">وضعیت پرداخت</label>
               <select
+                id="inv-status"
                 value={header.status}
                 onChange={(e) => setHeader({ ...header, status: e.target.value })}
                 className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
@@ -271,15 +344,37 @@ export default function Invoices() {
             </div>
           </div>
 
-          <div className="mb-2 text-xs text-ink/60">اقلام فاکتور</div>
+          <div className="mb-2 text-xs text-ink/60">اقلام فاکتور *</div>
+          {fieldErrors.lines && (
+            <p role="alert" className="text-bad text-[11px] mb-2">{fieldErrors.lines}</p>
+          )}
           <div className="space-y-2 mb-3">
             {lines.map((l, idx) => {
               const subtotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+              const lineErr = fieldErrors.lineErrors && fieldErrors.lineErrors[idx];
+              function clearLineErr() {
+                if (lineErr) {
+                  setFieldErrors((f) => {
+                    const next = { ...(f.lineErrors || {}) };
+                    delete next[idx];
+                    return { ...f, lineErrors: next };
+                  });
+                }
+              }
               return (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-paper rounded-md p-2">
+                <div
+                  key={idx}
+                  className={`grid grid-cols-12 gap-2 items-center rounded-md p-2 ${
+                    lineErr ? 'bg-bad/5 border border-bad/40' : 'bg-paper'
+                  }`}
+                >
                   <select
                     value={l.product_id}
-                    onChange={(e) => pickProduct(idx, e.target.value)}
+                    onChange={(e) => {
+                      pickProduct(idx, e.target.value);
+                      clearLineErr();
+                    }}
+                    aria-invalid={!!lineErr}
                     className="focus-ring col-span-4 rounded-md border border-line px-2 py-2 text-xs bg-surface"
                   >
                     <option value="">کالا را انتخاب کنید (یا دستی وارد کنید)…</option>
@@ -289,26 +384,42 @@ export default function Invoices() {
                   </select>
                   <input
                     value={l.product_name}
-                    onChange={(e) => updateLine(idx, { product_name: e.target.value })}
+                    onChange={(e) => {
+                      updateLine(idx, { product_name: e.target.value });
+                      clearLineErr();
+                    }}
                     placeholder="شرح قلم"
+                    aria-invalid={!!lineErr}
                     className="focus-ring col-span-3 rounded-md border border-line px-2 py-2 text-xs"
                   />
                   <input
                     type="number"
+                    min="0"
+                    step="any"
                     value={l.quantity}
-                    onChange={(e) => updateLine(idx, { quantity: e.target.value })}
+                    onChange={(e) => {
+                      updateLine(idx, { quantity: e.target.value });
+                      clearLineErr();
+                    }}
                     placeholder="تعداد"
+                    aria-invalid={!!lineErr}
                     className="focus-ring col-span-2 rounded-md border border-line px-2 py-2 text-xs"
                   />
                   <MoneyInput
                     value={l.unit_price}
-                    onChange={(v) => updateLine(idx, { unit_price: v })}
+                    onChange={(v) => {
+                      updateLine(idx, { unit_price: v });
+                      clearLineErr();
+                    }}
                     className="focus-ring col-span-2 rounded-md border border-line px-2 py-2 text-xs"
                     placeholder="قیمت واحد"
                   />
                   <div className="col-span-1 flex items-center justify-between">
                     <button type="button" onClick={() => removeLine(idx)} className="focus-ring text-bad text-xs">حذف</button>
                   </div>
+                  {lineErr && (
+                    <div className="col-span-12 text-bad text-[11px]">{lineErr}</div>
+                  )}
                   <div className="col-span-12 text-left text-xs text-ink/50">{formatToman(subtotal)}</div>
                 </div>
               );
@@ -426,7 +537,7 @@ export default function Invoices() {
                       >
                         چاپ
                       </Link>
-                      <button onClick={() => deleteRow(inv.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                      <button onClick={() => askDelete(inv.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
                     </td>
                   </tr>
                   {expanded === inv.id && (
@@ -456,6 +567,16 @@ export default function Invoices() {
         </table>
         <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete.open}
+        title="حذف فاکتور"
+        description="این فاکتور حذف شود؟ موجودی کالاهای آن به‌صورت خودکار به انبار برمی‌گردد. این عملیات قابل بازگشت نیست."
+        confirmLabel="حذف فاکتور"
+        busy={confirmDelete.busy}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null, busy: false })}
+      />
     </Layout>
   );
 }

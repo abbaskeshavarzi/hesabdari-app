@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
 
@@ -85,13 +86,15 @@ export default function Backup() {
     reader.readAsText(file);
   }
 
-  async function handleImport() {
-    if (!fileData) return;
-    const ok = confirm(
-      'این کار اطلاعات فایل پشتیبان را در دیتابیس فعلی بازیابی می‌کند و رکوردهای هم‌شناسه را جایگزین می‌کند. ادامه می‌دهید؟'
-    );
-    if (!ok) return;
+  const [confirmImport, setConfirmImport] = useState(false);
 
+  function askImport() {
+    if (!fileData) return;
+    setConfirmImport(true);
+  }
+
+  async function handleImport() {
+    setConfirmImport(false);
     setImporting(true);
     setError('');
     setMessage('');
@@ -145,13 +148,23 @@ export default function Backup() {
         />
         {fileName && <p className="text-xs text-ink/60 mb-3">فایل انتخاب‌شده: {fileName}</p>}
         <button
-          onClick={handleImport}
+          onClick={askImport}
           disabled={!fileData || importing}
           className="focus-ring bg-bad hover:opacity-90 text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-40"
         >
           {importing ? 'در حال بازیابی…' : 'بازیابی اطلاعات از این فایل'}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmImport}
+        title="بازیابی از فایل پشتیبان"
+        description="این کار اطلاعات فایل پشتیبان را در دیتابیس فعلی بازیابی می‌کند و رکوردهای هم‌شناسه را جایگزین می‌کند. این عملیات قابل بازگشت نیست. ادامه می‌دهید؟"
+        confirmLabel="بازیابی اطلاعات"
+        busy={importing}
+        onConfirm={handleImport}
+        onCancel={() => setConfirmImport(false)}
+      />
     </Layout>
   );
 }

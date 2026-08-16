@@ -13,7 +13,7 @@ import {
 // انتخابگر تاریخ شمسی — جایگزین <input type="date"> پیش‌فرض مرورگر
 // value: تاریخ به فرمت ISO میلادی 'YYYY-MM-DD' (برای سازگاری با دیتابیس)
 // onChange: تابعی که تاریخ جدید را به همان فرمت ISO برمی‌گرداند
-export default function JalaliDatePicker({ value, onChange, className, placeholder }) {
+export default function JalaliDatePicker({ value, onChange, className, placeholder, id, ...ariaProps }) {
   const [open, setOpen] = useState(false);
   const selected = isoToJalali(value);
   const t = todayJalali();
@@ -91,8 +91,12 @@ export default function JalaliDatePicker({ value, onChange, className, placehold
     <div ref={wrapRef} className="relative">
       <button
         type="button"
+        id={id}
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className={className || 'focus-ring w-full rounded-md border border-line px-3 py-2 text-sm text-right bg-surface'}
+        {...ariaProps}
       >
         {label || <span className="text-ink/40">{placeholder || 'انتخاب تاریخ'}</span>}
       </button>
