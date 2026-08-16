@@ -20,6 +20,10 @@ create index if not exists idx_invoice_items_user_id on invoice_items (user_id);
 create index if not exists idx_expenses_user_id on expenses (user_id);
 create index if not exists idx_business_settings_user_id on business_settings (user_id);
 
+-- هر کاربر باید تنظیمات کسب‌وکار مستقل داشته باشد. کلاینت از id=user_id برای upsert استفاده می‌کند.
+alter table business_settings alter column id set default auth.uid()::text;
+create unique index if not exists idx_business_settings_user_id_unique on business_settings (user_id);
+
 -- اگر دیتابیس قبلاً تک‌کاربره بوده، مقدار user_id رکوردهای قدیمی را دستی با id کاربر اصلی پر کنید.
 -- مثال امن‌تر: update customers set user_id = 'USER_UUID' where user_id is null;
 

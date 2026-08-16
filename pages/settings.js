@@ -71,7 +71,16 @@ export default function Settings() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from('business_settings').select('*').eq('id', 'default').single();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) {
+      setLoading(false);
+      return;
+    }
+    const { data } = await supabase
+      .from('business_settings')
+      .select('*')
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
     if (data) {
       setForm({
         name: data.name || '',
@@ -88,15 +97,21 @@ export default function Settings() {
     setSaving(true);
     setError('');
     setMessage('');
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData?.user) {
+      setSaving(false);
+      return setError('برای ذخیره تنظیمات باید دوباره وارد حساب شوید.');
+    }
     const { error } = await supabase
       .from('business_settings')
-      .update({
+      .upsert({
+        id: authData.user.id,
+        user_id: authData.user.id,
         name: form.name,
         phone: form.phone,
         address: form.address,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', 'default');
+      }, { onConflict: 'id' });
     setSaving(false);
     if (error) return setError('خطا در ذخیره تنظیمات.');
     setMessage('تنظیمات ذخیره شد.');
@@ -148,8 +163,7 @@ export default function Settings() {
     const logoUrl = pub.publicUrl + '?t=' + Date.now();
     const { error: updateErr } = await supabase
       .from('business_settings')
-      .update({ logo_url: logoUrl })
-      .eq('id', 'default');
+      .upsert({ id: authData.user.id, user_id: authData.user.id, logo_url: logoUrl }, { onConflict: 'id' });
     setSaving(false);
     if (updateErr) return setError('خطا در ذخیره لوگو.');
     setForm((f) => ({ ...f, logo_url: logoUrl }));

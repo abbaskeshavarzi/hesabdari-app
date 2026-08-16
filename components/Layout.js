@@ -70,8 +70,8 @@ export default function Layout({ children, title }) {
     supabase
       .from('business_settings')
       .select('name, logo_url')
-      .eq('id', 'default')
-      .single()
+      .eq('user_id', session.user.id)
+      .maybeSingle()
       .then(({ data }) => setBusiness(data || null));
   }, [session]);
 
