@@ -30,7 +30,7 @@ export default function Login() {
           <div className="text-xs text-ink/50 mt-1">ورود به پنل مدیریت</div>
         </div>
         {error && (
-          <div className="text-bad text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
+          <div className="text-badText text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
         )}
         <label className="block text-xs text-ink/60 mb-1">ایمیل</label>
         <input

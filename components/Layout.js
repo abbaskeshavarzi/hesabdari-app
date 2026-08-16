@@ -101,7 +101,10 @@ export default function Layout({ children, title }) {
             href={item.href}
             onClick={onNavigate}
             className={`focus-ring flex items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors ${
-              active ? 'bg-brass text-ink font-semibold' : 'text-gray-300 hover:bg-white/10'
+              // متن آیتم فعال عمداً یک رنگ ثابت (نه text-ink) است: چون در حالت
+              // تاریک ink روشن می‌شه و روی پس‌زمینه‌ی brass کنتراستش به ۲.۶:۱ افت می‌کنه (رد WCAG).
+              // با رنگ ثابت تیره، در هر دو تم روی brass حدود ۴.۹:۱ کنتراست داره.
+              active ? 'bg-brass text-[#17233D] font-semibold' : 'text-gray-300 hover:bg-white/10'
             }`}
           >
             <span className="text-[10px] opacity-60 font-mono">{item.key}</span>

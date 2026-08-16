@@ -74,6 +74,66 @@ function SalesChart({ monthlyChart }) {
   );
 }
 
+// دکمه‌ی «افزودن سریع»: یک دکمه‌ی اصلی برجسته (فاکتور، پرتکرارترین عمل) +
+// یک فلش کوچیک کنارش برای دو گزینه‌ی دیگه (مشتری، هزینه).
+// هر لینک با ?new=1 صفحه‌ی مقصد رو طوری باز می‌کنه که فرم افزودن از قبل بازه.
+function QuickAddBar() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative flex items-stretch mb-4 w-fit">
+      <Link
+        href="/invoices?new=1"
+        className="focus-ring bg-brass hover:bg-brassDark text-white text-sm font-semibold rounded-s-md px-4 py-2.5"
+      >
+        + فاکتور جدید
+      </Link>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="گزینه‌های بیشتر افزودن"
+        aria-expanded={open}
+        className="focus-ring bg-brass hover:bg-brassDark text-white rounded-e-md px-2.5 border-s border-white/25"
+      >
+        {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 inset-x-0 sm:inset-x-auto sm:w-40 bg-surface border border-line rounded-md shadow-lg overflow-hidden z-10">
+          <Link
+            href="/customers?new=1"
+            className="focus-ring block px-3 py-2 text-sm hover:bg-paper"
+            onClick={() => setOpen(false)}
+          >
+            + مشتری جدید
+          </Link>
+          <Link
+            href="/expenses?new=1"
+            className="focus-ring block px-3 py-2 text-sm hover:bg-paper border-t border-line"
+            onClick={() => setOpen(false)}
+          >
+            + هزینه جدید
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// نشانگر کوچیک روند فروش این ماه نسبت به ماه قبل (بالا/پایین/بدون تغییر)
+function SalesTrend({ monthlyChart }) {
+  if (!monthlyChart || monthlyChart.length < 2) return null;
+  const current = monthlyChart[monthlyChart.length - 1].total;
+  const previous = monthlyChart[monthlyChart.length - 2].total;
+  if (!previous) return null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return <span className="text-[11px] text-ink/40 mr-1">بدون تغییر نسبت به ماه قبل</span>;
+  const up = pct > 0;
+  return (
+    <span className={`text-[11px] mr-1 ${up ? 'text-goodText' : 'text-badText'}`}>
+      {up ? '▲' : '▼'} {Math.abs(pct)}٪ نسبت به ماه قبل
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
@@ -93,6 +153,8 @@ export default function Dashboard() {
       setError(friendlyError(rpcError, 'خطا در بارگذاری آمار داشبورد. لطفاً صفحه را رفرش کنید.'));
       // stats را به یک حالت خالی (نه null) ست می‌کنیم تا Skeleton برای همیشه نمایش داده نشه
       // و کاربر به‌جای اسکلت بی‌پایان، صفحه‌ی خالی همراه پیام خطا رو ببینه.
+      // مقادیر عددی خودشون هرگز مستقیم رندر نمی‌شن وقتی error ست شده (به‌جاش «—» نشون داده
+      // می‌شه) تا با «۰ واقعی» اشتباه گرفته نشن.
       setStats({
         totalCustomers: 0,
         totalOwed: 0,
@@ -124,8 +186,11 @@ export default function Dashboard() {
   return (
     <Layout title="داشبورد">
       {error && (
-        <div className="text-bad text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div className="text-badText text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
+      {/* دکمه‌ی افزودن سریع همیشه نمایش داده می‌شه، حتی موقع بارگذاری آمار،
+          چون نیازی به داده‌ی آماری نداره و کاربر نباید برای شروع یه فاکتور جدید صبر کنه. */}
+      <QuickAddBar />
       {!stats ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <CardSkeleton />
@@ -154,15 +219,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">تعداد مشتریان</div>
-            <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+            {/* در حالت خطا «—» نشون داده می‌شه، نه ۰، تا با «واقعاً صفر مشتری» اشتباه نشه */}
+            <div className="text-2xl font-bold">{error ? '—' : stats.totalCustomers}</div>
           </div>
           <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">مطالبات باز</div>
-            <div className="text-2xl font-bold text-bad">{formatToman(stats.totalOwed)}</div>
+            <div className="text-2xl font-bold text-badText">{error ? '—' : formatToman(stats.totalOwed)}</div>
           </div>
           <div className="bg-surface rounded-xl border border-line p-5">
             <div className="text-xs text-ink/50 mb-1">فروش این ماه</div>
-            <div className="text-2xl font-bold text-good">{formatToman(stats.monthSales)}</div>
+            <div className="text-2xl font-bold text-goodText">{error ? '—' : formatToman(stats.monthSales)}</div>
+            {!error && <SalesTrend monthlyChart={stats.monthlyChart} />}
           </div>
           <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
             <div className="text-sm font-semibold mb-4">روند فروش (۶ ماه اخیر)</div>
@@ -178,9 +245,16 @@ export default function Dashboard() {
                 ) : (
                   <ul className="text-sm divide-y divide-line">
                     {stats.topDebtors.map((b) => (
-                      <li key={b.customer_id} className="py-2 flex justify-between items-center">
-                        <span>{b.name}</span>
-                        <span className="font-medium text-bad">{formatToman(b.balance)}</span>
+                      <li key={b.customer_id}>
+                        {/* هر ردیف به صفحه‌ی مشتریان با جست‌وجوی از قبل پرشده لینک می‌شه،
+                            به‌جای اینکه کاربر مجبور باشه دوباره اسم رو تایپ کنه */}
+                        <Link
+                          href={`/customers?search=${encodeURIComponent(b.name || '')}`}
+                          className="focus-ring py-2 flex justify-between items-center hover:bg-paper -mx-1 px-1 rounded"
+                        >
+                          <span>{b.name}</span>
+                          <span className="font-medium text-badText">{formatToman(b.balance)}</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -195,13 +269,19 @@ export default function Dashboard() {
                   <p className="text-xs text-ink/40">فاکتور معوق قدیمی‌ای وجود ندارد.</p>
                 ) : (
                   <ul className="text-sm divide-y divide-line">
-                    {stats.overdueInvoices.map((inv, idx) => (
-                      <li key={idx} className="py-2 flex justify-between items-center gap-2">
-                        <span className="truncate">
-                          {inv.customer_name || '—'} · {inv.invoice_number || ''}
-                          <span className="text-[10px] text-bad mr-1">({inv.days_overdue} روز)</span>
-                        </span>
-                        <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
+                    {stats.overdueInvoices.map((inv) => (
+                      <li key={inv.id || inv.invoice_number}>
+                        {/* لینک مستقیم به فاکتور (نه صرفاً به لیست کلی فاکتورها) */}
+                        <Link
+                          href={inv.id ? `/invoice-print?id=${inv.id}` : '/invoices'}
+                          className="focus-ring py-2 flex justify-between items-center gap-2 hover:bg-paper -mx-1 px-1 rounded"
+                        >
+                          <span className="truncate">
+                            {inv.customer_name || '—'} · {inv.invoice_number || ''}
+                            <span className="text-[10px] text-badText mr-1">({inv.days_overdue} روز)</span>
+                          </span>
+                          <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -220,9 +300,19 @@ export default function Dashboard() {
             ) : (
               <ul className="text-sm divide-y divide-line">
                 {stats.recentInvoices.map((inv, idx) => (
-                  <li key={idx} className="py-2 flex justify-between">
-                    <span>{formatJalaliShort(inv.issue_date)}</span>
-                    <span className="font-medium">{formatToman(inv.total_amount)}</span>
+                  <li key={inv.id || idx}>
+                    {/* قبلاً فقط تاریخ و مبلغ نشون داده می‌شد؛ الان نام مشتری و شماره فاکتور
+                        هم اضافه شده و کل ردیف به خود فاکتور لینک می‌شه */}
+                    <Link
+                      href={inv.id ? `/invoice-print?id=${inv.id}` : '/invoices'}
+                      className="focus-ring py-2 flex justify-between items-center gap-2 hover:bg-paper -mx-1 px-1 rounded"
+                    >
+                      <span className="truncate">
+                        {inv.customer_name || '—'} · {inv.invoice_number || ''}
+                        <span className="text-ink/40 text-xs mr-1">· {formatJalaliShort(inv.issue_date)}</span>
+                      </span>
+                      <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>

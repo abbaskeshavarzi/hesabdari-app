@@ -162,7 +162,7 @@ export default function InvoicePrint() {
     return <p className="p-10 text-sm text-ink/50">در حال بارگذاری…</p>;
   }
   if (invoice === null) {
-    return <p className="p-10 text-sm text-bad">فاکتور یافت نشد.</p>;
+    return <p className="p-10 text-sm text-badText">فاکتور یافت نشد.</p>;
   }
 
   return (

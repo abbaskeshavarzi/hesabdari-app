@@ -16,6 +16,8 @@ module.exports = {
         brassDark: '#96692A',
         good: '#2F6E4F',
         bad: '#A33B34',
+        goodText: 'var(--color-goodText)',
+        badText: 'var(--color-badText)',
       },
       fontFamily: {
         vazir: ['Vazirmatn', 'Tahoma', 'sans-serif'],

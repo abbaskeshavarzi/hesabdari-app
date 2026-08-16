@@ -48,7 +48,7 @@ export default function Products() {
         .from('products')
         .update({ name: form.name, unit: form.unit, price: Number(form.price) })
         .eq('id', form.id);
-      if (error) return setError(friendlyError(error, 'خطا در ویرایش کالا.'));
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش کالا. لطفاً دوباره تلاش کنید.'));
     } else {
       const { error } = await supabase.from('products').insert({
         name: form.name,
@@ -56,7 +56,7 @@ export default function Products() {
         price: Number(form.price),
         stock_qty: Number(form.stock_qty || 0),
       });
-      if (error) return setError(friendlyError(error, 'خطا در ثبت کالا.'));
+      if (error) return setError(friendlyError(error, 'خطا در ثبت کالا. لطفاً دوباره تلاش کنید.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -116,12 +116,12 @@ export default function Products() {
       </div>
 
       {!showForm && error && (
-        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
-          {error && <div className="sm:col-span-4 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
+          {error && <div className="sm:col-span-4 text-badText text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">نام کالا</label>
             <input
@@ -195,12 +195,12 @@ export default function Products() {
                   <td className="font-medium">{p.name}</td>
                   <td>{p.unit}</td>
                   <td>{formatToman(p.price)}</td>
-                  <td className={p.stock_qty <= 0 ? 'text-bad font-semibold' : ''}>
+                  <td className={p.stock_qty <= 0 ? 'text-badText font-semibold' : ''}>
                     {p.stock_qty} {p.unit}
                   </td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => editRow(p)} className="focus-ring text-xs text-brass hover:underline ml-3">ویرایش</button>
-                    <button onClick={() => askDelete(p.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(p.id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
                   </td>
                 </tr>
               ))

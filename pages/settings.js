@@ -150,8 +150,8 @@ export default function Settings() {
         <p className="text-ink/50 text-sm">در حال بارگذاری…</p>
       ) : (
         <div className="max-w-xl">
-          {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
-          {message && <div className="text-good text-xs bg-good/10 rounded-md px-3 py-2 mb-4">{message}</div>}
+          {error && <div className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
+          {message && <div className="text-goodText text-xs bg-good/10 rounded-md px-3 py-2 mb-4">{message}</div>}
 
           <div className="bg-surface border border-line rounded-xl p-5 mb-6">
             <div className="text-sm font-semibold mb-3">لوگوی کسب‌وکار</div>

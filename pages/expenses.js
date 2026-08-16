@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
@@ -33,10 +34,20 @@ export default function Expenses() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const router = useRouter();
 
   useEffect(() => {
     load();
   }, []);
+
+  // پشتیبانی از دکمه‌ی «افزودن سریع» در داشبورد: با /expenses?new=1 فرم افزودن
+  // مستقیم باز می‌شه، بدون اینکه کاربر لازم باشه خودش دکمه رو بزنه.
+  useEffect(() => {
+    if (router.query.new === '1') {
+      setForm(emptyForm);
+      setShowForm(true);
+    }
+  }, [router.query.new]);
 
   async function load() {
     setLoading(true);
@@ -62,7 +73,7 @@ export default function Expenses() {
           description: form.description,
         })
         .eq('id', form.id);
-      if (error) return setError(friendlyError(error, 'خطا در ویرایش هزینه.'));
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش هزینه. لطفاً دوباره تلاش کنید.'));
     } else {
       const { error } = await supabase.from('expenses').insert({
         category: form.category,
@@ -70,7 +81,7 @@ export default function Expenses() {
         expense_date: form.expense_date,
         description: form.description,
       });
-      if (error) return setError(friendlyError(error, 'خطا در ثبت هزینه.'));
+      if (error) return setError(friendlyError(error, 'خطا در ثبت هزینه. لطفاً دوباره تلاش کنید.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -100,7 +111,7 @@ export default function Expenses() {
     const { error } = await supabase.from('expenses').delete().eq('id', id);
     if (error) {
       setConfirmDelete({ open: false, id: null, busy: false });
-      return setError(friendlyError(error, 'خطا در حذف هزینه.'));
+      return setError(friendlyError(error, 'خطا در حذف هزینه. لطفاً دوباره تلاش کنید.'));
     }
     setConfirmDelete({ open: false, id: null, busy: false });
     load();
@@ -154,12 +165,12 @@ export default function Expenses() {
       </div>
 
       {!showForm && error && (
-        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
-          {error && <div className="sm:col-span-4 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
+          {error && <div className="sm:col-span-4 text-badText text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">دسته</label>
             <select
@@ -226,11 +237,11 @@ export default function Expenses() {
                 <tr key={r.id}>
                   <td>{formatJalaliShort(r.expense_date)}</td>
                   <td className="font-medium">{r.category}</td>
-                  <td className="text-bad font-semibold">{formatToman(r.amount)}</td>
+                  <td className="text-badText font-semibold">{formatToman(r.amount)}</td>
                   <td className="text-ink/60">{r.description || '—'}</td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => editRow(r)} className="focus-ring text-xs text-brass hover:underline ml-3">ویرایش</button>
-                    <button onClick={() => askDelete(r.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(r.id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
                   </td>
                 </tr>
               ))

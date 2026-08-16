@@ -76,11 +76,11 @@ export default function ProfitLoss() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-surface border border-line rounded-xl p-5">
               <div className="text-xs text-ink/50 mb-1">مجموع فروش</div>
-              <div className="text-xl font-bold text-good">{formatToman(result.totalSales)}</div>
+              <div className="text-xl font-bold text-goodText">{formatToman(result.totalSales)}</div>
             </div>
             <div className="bg-surface border border-line rounded-xl p-5">
               <div className="text-xs text-ink/50 mb-1">مجموع هزینه‌ها</div>
-              <div className="text-xl font-bold text-bad">{formatToman(result.totalExpenses)}</div>
+              <div className="text-xl font-bold text-badText">{formatToman(result.totalExpenses)}</div>
             </div>
             <div className={`rounded-xl p-5 ${result.net >= 0 ? 'bg-good' : 'bg-bad'} text-white`}>
               <div className="text-xs opacity-80 mb-1">{result.net >= 0 ? 'سود خالص' : 'زیان خالص'}</div>

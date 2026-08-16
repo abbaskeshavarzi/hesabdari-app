@@ -61,7 +61,7 @@ export default function Payments() {
       payment_date: form.payment_date,
       note: form.note,
     });
-    if (error) return setError(friendlyError(error, 'خطا در ثبت پرداخت.'));
+    if (error) return setError(friendlyError(error, 'خطا در ثبت پرداخت. لطفاً دوباره تلاش کنید.'));
     setForm(emptyForm);
     setShowForm(false);
     load();
@@ -79,7 +79,7 @@ export default function Payments() {
     const { error } = await supabase.from('payments').delete().eq('id', id);
     if (error) {
       setConfirmDelete({ open: false, id: null, busy: false });
-      return setError(friendlyError(error, 'خطا در حذف پرداخت.'));
+      return setError(friendlyError(error, 'خطا در حذف پرداخت. لطفاً دوباره تلاش کنید.'));
     }
     setConfirmDelete({ open: false, id: null, busy: false });
     load();
@@ -116,12 +116,12 @@ export default function Payments() {
       </div>
 
       {!showForm && error && (
-        <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
-          {error && <div className="sm:col-span-4 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
+          {error && <div className="sm:col-span-4 text-badText text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">مشتری</label>
             <select
@@ -188,10 +188,10 @@ export default function Payments() {
                 <tr key={p.id}>
                   <td>{formatJalaliShort(p.payment_date)}</td>
                   <td className="font-medium">{p.customers?.name || '—'}</td>
-                  <td className="text-good font-semibold">{formatToman(p.amount)}</td>
+                  <td className="text-goodText font-semibold">{formatToman(p.amount)}</td>
                   <td className="text-ink/60">{p.note || '—'}</td>
                   <td>
-                    <button onClick={() => askDelete(p.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(p.id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
                   </td>
                 </tr>
               ))

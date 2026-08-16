@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
@@ -43,10 +44,28 @@ export default function Invoices() {
   const [expanded, setExpanded] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
   const [page, setPage] = useState(1);
+  const router = useRouter();
 
   useEffect(() => {
     load();
   }, []);
+
+  // پشتیبانی از دکمه‌ی «افزودن سریع» در داشبورد: /invoices?new=1
+  // چون openNewForm به لیست فاکتورهای بارگذاری‌شده نیاز داره (برای شماره‌گذاری خودکار)،
+  // صبر می‌کنیم تا loading تموم بشه، بعد فرم رو باز می‌کنیم (فقط یک‌بار).
+  useEffect(() => {
+    if (router.query.new === '1' && !loading && !showForm) {
+      openNewForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.new, loading]);
+
+  // پشتیبانی از کلیک روی ردیف در داشبورد: /invoices?search=...
+  useEffect(() => {
+    if (typeof router.query.search === 'string') {
+      setSearch(router.query.search);
+    }
+  }, [router.query.search]);
 
   async function load() {
     setLoading(true);
@@ -168,7 +187,7 @@ export default function Invoices() {
     setSubmitting(false);
 
     if (rpcErr) {
-      return setError(friendlyError(rpcErr, 'خطا در ثبت فاکتور.'));
+      return setError(friendlyError(rpcErr, 'خطا در ثبت فاکتور. لطفاً دوباره تلاش کنید.'));
     }
 
     setShowForm(false);
@@ -187,7 +206,7 @@ export default function Invoices() {
     const { error: delErr } = await supabase.rpc('delete_invoice_and_restore_stock', { p_invoice_id: id });
     if (delErr) {
       setConfirmDelete({ open: false, id: null, busy: false });
-      setError(friendlyError(delErr, 'خطا در حذف فاکتور.'));
+      setError(friendlyError(delErr, 'خطا در حذف فاکتور. لطفاً دوباره تلاش کنید.'));
       return;
     }
     setConfirmDelete({ open: false, id: null, busy: false });
@@ -200,9 +219,9 @@ export default function Invoices() {
   }
 
   function statusColor(status) {
-    if (status === 'پرداخت‌شده') return 'text-good bg-good/10';
+    if (status === 'پرداخت‌شده') return 'text-goodText bg-good/10';
     if (status === 'نیمه‌پرداخت') return 'text-brassDark bg-brass/10';
-    return 'text-bad bg-bad/10';
+    return 'text-badText bg-bad/10';
   }
 
   async function toggleExpand(id) {
@@ -266,13 +285,13 @@ export default function Invoices() {
       </div>
 
       {!showForm && error && (
-        <div role="alert" aria-live="assertive" className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
+        <div role="alert" aria-live="assertive" className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
       )}
 
       {showForm && (
         <form onSubmit={handleSubmit} noValidate className="bg-surface border border-line rounded-xl p-5 mb-6">
           {error && (
-            <div role="alert" aria-live="assertive" className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>
+            <div role="alert" aria-live="assertive" className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>
           )}
           <div className="grid sm:grid-cols-4 gap-3 mb-4">
             <div>
@@ -298,7 +317,7 @@ export default function Invoices() {
                 ))}
               </select>
               {fieldErrors.customer_id && (
-                <p id="inv-customer-err" className="text-bad text-[11px] mt-1">{fieldErrors.customer_id}</p>
+                <p id="inv-customer-err" className="text-badText text-[11px] mt-1">{fieldErrors.customer_id}</p>
               )}
             </div>
             <div>
@@ -326,7 +345,7 @@ export default function Invoices() {
                 }`}
               />
               {fieldErrors.issue_date && (
-                <p id="inv-date-err" className="text-bad text-[11px] mt-1">{fieldErrors.issue_date}</p>
+                <p id="inv-date-err" className="text-badText text-[11px] mt-1">{fieldErrors.issue_date}</p>
               )}
             </div>
             <div>
@@ -346,7 +365,7 @@ export default function Invoices() {
 
           <div className="mb-2 text-xs text-ink/60">اقلام فاکتور *</div>
           {fieldErrors.lines && (
-            <p role="alert" className="text-bad text-[11px] mb-2">{fieldErrors.lines}</p>
+            <p role="alert" className="text-badText text-[11px] mb-2">{fieldErrors.lines}</p>
           )}
           <div className="space-y-2 mb-3">
             {lines.map((l, idx) => {
@@ -415,10 +434,10 @@ export default function Invoices() {
                     placeholder="قیمت واحد"
                   />
                   <div className="col-span-1 flex items-center justify-between">
-                    <button type="button" onClick={() => removeLine(idx)} className="focus-ring text-bad text-xs">حذف</button>
+                    <button type="button" onClick={() => removeLine(idx)} className="focus-ring text-badText text-xs">حذف</button>
                   </div>
                   {lineErr && (
-                    <div className="col-span-12 text-bad text-[11px]">{lineErr}</div>
+                    <div className="col-span-12 text-badText text-[11px]">{lineErr}</div>
                   )}
                   <div className="col-span-12 text-left text-xs text-ink/50">{formatToman(subtotal)}</div>
                 </div>
@@ -537,7 +556,7 @@ export default function Invoices() {
                       >
                         چاپ
                       </Link>
-                      <button onClick={() => askDelete(inv.id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                      <button onClick={() => askDelete(inv.id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
                     </td>
                   </tr>
                   {expanded === inv.id && (

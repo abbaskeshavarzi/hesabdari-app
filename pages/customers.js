@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
@@ -23,10 +24,27 @@ export default function Customers() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const router = useRouter();
 
   useEffect(() => {
     load();
   }, []);
+
+  // پشتیبانی از دکمه‌ی «افزودن سریع» در داشبورد: /customers?new=1 فرم افزودن رو باز می‌کنه
+  useEffect(() => {
+    if (router.query.new === '1') {
+      setForm(emptyForm);
+      setShowForm(true);
+    }
+  }, [router.query.new]);
+
+  // پشتیبانی از کلیک روی ردیف «بدهکارترین مشتریان» در داشبورد: /customers?search=...
+  // جست‌وجو رو از قبل با نام همون مشتری پر می‌کنه تا سریع پیدا بشه.
+  useEffect(() => {
+    if (typeof router.query.search === 'string') {
+      setSearch(router.query.search);
+    }
+  }, [router.query.search]);
 
   async function load() {
     setLoading(true);
@@ -47,12 +65,12 @@ export default function Customers() {
         .from('customers')
         .update({ name: form.name, phone: form.phone, address: form.address })
         .eq('id', form.id);
-      if (error) return setError(friendlyError(error, 'خطا در ویرایش مشتری.'));
+      if (error) return setError(friendlyError(error, 'خطا در ویرایش مشتری. لطفاً دوباره تلاش کنید.'));
     } else {
       const { error } = await supabase
         .from('customers')
         .insert({ name: form.name, phone: form.phone, address: form.address });
-      if (error) return setError(friendlyError(error, 'خطا در ثبت مشتری.'));
+      if (error) return setError(friendlyError(error, 'خطا در ثبت مشتری. لطفاً دوباره تلاش کنید.'));
     }
     setForm(emptyForm);
     setShowForm(false);
@@ -76,7 +94,7 @@ export default function Customers() {
     const { error } = await supabase.from('customers').delete().eq('id', id);
     if (error) {
       setConfirmDelete({ open: false, id: null, busy: false });
-      return setError(friendlyError(error, 'خطا در حذف مشتری.'));
+      return setError(friendlyError(error, 'خطا در حذف مشتری. لطفاً دوباره تلاش کنید.'));
     }
     setConfirmDelete({ open: false, id: null, busy: false });
     load();
@@ -135,7 +153,7 @@ export default function Customers() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-3 gap-3">
-          {error && <div className="sm:col-span-3 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
+          {error && <div className="sm:col-span-3 text-badText text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">نام مشتری</label>
             <input
@@ -194,9 +212,9 @@ export default function Customers() {
                   <td>{r.address || '—'}</td>
                   <td>
                     {r.balance > 0 ? (
-                      <span className="text-bad text-xs font-semibold">بدهکار</span>
+                      <span className="text-badText text-xs font-semibold">بدهکار</span>
                     ) : r.balance < 0 ? (
-                      <span className="text-good text-xs font-semibold">بستانکار</span>
+                      <span className="text-goodText text-xs font-semibold">بستانکار</span>
                     ) : (
                       <span className="text-ink/40 text-xs">تسویه</span>
                     )}
@@ -204,7 +222,7 @@ export default function Customers() {
                   <td>{formatToman(Math.abs(r.balance))}</td>
                   <td className="whitespace-nowrap">
                     <button onClick={() => editRow(r)} className="focus-ring text-xs text-brass hover:underline ml-3">ویرایش</button>
-                    <button onClick={() => askDelete(r.customer_id)} className="focus-ring text-xs text-bad hover:underline">حذف</button>
+                    <button onClick={() => askDelete(r.customer_id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
                   </td>
                 </tr>
               ))

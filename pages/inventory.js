@@ -79,7 +79,7 @@ export default function Inventory() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-xl p-5 mb-6 grid sm:grid-cols-4 gap-3">
-          {error && <div className="sm:col-span-4 text-bad text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
+          {error && <div className="sm:col-span-4 text-badText text-xs bg-bad/10 rounded-md px-3 py-2">{error}</div>}
           <div>
             <label className="block text-xs text-ink/60 mb-1">کالا</label>
             <select
@@ -148,7 +148,7 @@ export default function Inventory() {
                 <tr key={m.id}>
                   <td>{formatJalaliShort(m.created_at)}</td>
                   <td className="font-medium">{m.products?.name || '—'}</td>
-                  <td className={m.change_qty > 0 ? 'text-good font-semibold' : 'text-bad font-semibold'}>
+                  <td className={m.change_qty > 0 ? 'text-goodText font-semibold' : 'text-badText font-semibold'}>
                     {m.change_qty > 0 ? '+' : ''}{m.change_qty} {m.products?.unit}
                   </td>
                   <td className="text-ink/60">{m.reason || '—'}</td>

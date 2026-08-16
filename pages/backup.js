@@ -60,7 +60,7 @@ export default function Backup() {
       URL.revokeObjectURL(url);
       setMessage('فایل پشتیبان با موفقیت دانلود شد.');
     } catch (err) {
-      setError(friendlyError(err, 'خطا در گرفتن پشتیبان.'));
+      setError(friendlyError(err, 'خطا در گرفتن پشتیبان. لطفاً اتصال اینترنت را بررسی و دوباره تلاش کنید.'));
     }
     setExporting(false);
   }
@@ -116,8 +116,8 @@ export default function Backup() {
 
   return (
     <Layout title="پشتیبان‌گیری">
-      {message && <div className="text-good text-xs bg-good/10 rounded-md px-3 py-2 mb-4">{message}</div>}
-      {error && <div className="text-bad text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
+      {message && <div className="text-goodText text-xs bg-good/10 rounded-md px-3 py-2 mb-4">{message}</div>}
+      {error && <div className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
 
       <div className="bg-surface border border-line rounded-xl p-5 mb-6">
         <h2 className="font-bold mb-2">خروجی گرفتن (دانلود پشتیبان)</h2>
@@ -136,7 +136,7 @@ export default function Backup() {
 
       <div className="bg-surface border border-line rounded-xl p-5">
         <h2 className="font-bold mb-2">بازیابی از فایل پشتیبان</h2>
-        <p className="text-xs text-bad mb-4">
+        <p className="text-xs text-badText mb-4">
           توجه: این کار اطلاعات فعلی را با اطلاعات فایل جایگزین/ترکیب می‌کند و برگشت‌پذیر نیست. فقط از فایل‌هایی
           استفاده کنید که خودتان از همین اپ خروجی گرفته‌اید.
         </p>
