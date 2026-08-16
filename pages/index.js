@@ -10,69 +10,45 @@ function formatToman(n) {
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     load();
   }, []);
 
   async function load() {
-    const { data: balances } = await supabase.from('customer_balances').select('*');
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('total_amount, issue_date, invoice_number, status, customer_id, customers(name)')
-      .order('issue_date', { ascending: false });
+    setError('');
+    // به‌جای گرفتن کل جدول فاکتورها و مشتریان و محاسبه سمت مرورگر،
+    // همه‌ی آمار داشبورد با یک درخواست از تابع دیتابیسی get_dashboard_stats گرفته می‌شه.
+    // این باعث می‌شه با زیاد شدن تعداد فاکتورها، بارگذاری داشبورد کند نشه.
+    const { data, error: rpcError } = await supabase.rpc('get_dashboard_stats');
 
-    const totalCustomers = balances?.length || 0;
-    const totalOwed = (balances || []).reduce((s, b) => s + (b.balance > 0 ? b.balance : 0), 0);
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    const monthSales = (invoices || [])
-      .filter((i) => new Date(i.issue_date) >= startOfMonth)
-      .reduce((s, i) => s + Number(i.total_amount), 0);
-
-    const now = new Date();
-    const buckets = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-      const total = (invoices || [])
-        .filter((inv) => {
-          const dt = new Date(inv.issue_date);
-          return dt >= d && dt < next;
-        })
-        .reduce((s, inv) => s + Number(inv.total_amount), 0);
-      buckets.push({
-        label: d.toLocaleDateString('fa-IR', { month: 'long' }),
-        total,
-      });
+    if (rpcError) {
+      setError('خطا در بارگذاری آمار داشبورد. لطفاً صفحه را رفرش کنید.');
+      return;
     }
 
-    // بدهکارترین مشتریان (بیشترین مطالبات باز)
-    const topDebtors = (balances || [])
-      .filter((b) => b.balance > 0)
-      .sort((a, b) => b.balance - a.balance)
-      .slice(0, 5);
-
-    // فاکتورهای معوق قدیمی‌تر از ۳۰ روز
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const overdueInvoices = (invoices || [])
-      .filter((inv) => (inv.status || 'معوق') !== 'پرداخت‌شده' && now - new Date(inv.issue_date) > THIRTY_DAYS)
-      .sort((a, b) => new Date(a.issue_date) - new Date(b.issue_date))
-      .slice(0, 5);
+    const monthlyChart = (data.monthly_chart || []).map((b) => ({
+      label: new Date(b.month_start).toLocaleDateString('fa-IR', { month: 'long' }),
+      total: Number(b.total),
+    }));
 
     setStats({
-      totalCustomers,
-      totalOwed,
-      monthSales,
-      recentInvoices: (invoices || []).slice(0, 5),
-      monthlyChart: buckets,
-      topDebtors,
-      overdueInvoices,
+      totalCustomers: data.total_customers || 0,
+      totalOwed: Number(data.total_owed) || 0,
+      monthSales: Number(data.month_sales) || 0,
+      recentInvoices: data.recent_invoices || [],
+      monthlyChart,
+      topDebtors: data.top_debtors || [],
+      overdueInvoices: data.overdue_invoices || [],
     });
   }
 
   return (
     <Layout title="داشبورد">
+      {error && (
+        <div className="text-bad text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>
+      )}
       {!stats ? (
         <p className="text-ink/50 text-sm">در حال بارگذاری…</p>
       ) : (
@@ -138,18 +114,15 @@ export default function Dashboard() {
                   <p className="text-xs text-ink/40">فاکتور معوق قدیمی‌ای وجود ندارد.</p>
                 ) : (
                   <ul className="text-sm divide-y divide-line">
-                    {stats.overdueInvoices.map((inv, idx) => {
-                      const days = Math.floor((new Date() - new Date(inv.issue_date)) / (24 * 60 * 60 * 1000));
-                      return (
-                        <li key={idx} className="py-2 flex justify-between items-center gap-2">
-                          <span className="truncate">
-                            {inv.customers?.name || '—'} · {inv.invoice_number || ''}
-                            <span className="text-[10px] text-bad mr-1">({days} روز)</span>
-                          </span>
-                          <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
-                        </li>
-                      );
-                    })}
+                    {stats.overdueInvoices.map((inv, idx) => (
+                      <li key={idx} className="py-2 flex justify-between items-center gap-2">
+                        <span className="truncate">
+                          {inv.customer_name || '—'} · {inv.invoice_number || ''}
+                          <span className="text-[10px] text-bad mr-1">({inv.days_overdue} روز)</span>
+                        </span>
+                        <span className="font-medium whitespace-nowrap">{formatToman(inv.total_amount)}</span>
+                      </li>
+                    ))}
                   </ul>
                 )}
                 <Link href="/invoices" className="focus-ring text-xs text-brass hover:underline block mt-3">
