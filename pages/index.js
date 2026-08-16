@@ -1,11 +1,75 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import Layout from '../components/Layout';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+
 function formatToman(n) {
   return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
+}
+
+// نمودار ستونی فروش ۶ ماه اخیر با tooltip فارسی، جایگزین نمودار قبلی که با CSS خام ساخته شده بود
+function SalesChart({ monthlyChart }) {
+  const data = {
+    labels: monthlyChart.map((b) => b.label),
+    datasets: [
+      {
+        label: 'فروش',
+        data: monthlyChart.map((b) => b.total),
+        backgroundColor: '#B8873B',
+        borderRadius: 6,
+        maxBarThickness: 48,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    rtl: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        rtl: true,
+        titleFont: { family: 'Vazirmatn' },
+        bodyFont: { family: 'Vazirmatn' },
+        callbacks: {
+          label: (ctx) => formatToman(ctx.parsed.y),
+        },
+      },
+    },
+    scales: {
+      x: {
+        reverse: true,
+        ticks: { font: { family: 'Vazirmatn' } },
+        grid: { display: false },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: { family: 'Vazirmatn' },
+          callback: (v) => new Intl.NumberFormat('fa-IR', { notation: 'compact' }).format(v),
+        },
+        grid: { color: '#C7CCCB' },
+      },
+    },
+  };
+
+  return (
+    <div style={{ height: '220px' }}>
+      <Bar data={data} options={options} />
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -67,25 +131,7 @@ export default function Dashboard() {
           </div>
           <div className="sm:col-span-3 bg-surface rounded-xl border border-line p-5">
             <div className="text-sm font-semibold mb-4">روند فروش (۶ ماه اخیر)</div>
-            {(() => {
-              const max = Math.max(1, ...stats.monthlyChart.map((b) => b.total));
-              return (
-                <div className="flex items-end justify-between gap-2 h-40">
-                  {stats.monthlyChart.map((b, idx) => (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="text-[10px] text-ink/50 whitespace-nowrap">
-                        {b.total > 0 ? new Intl.NumberFormat('fa-IR', { notation: 'compact' }).format(b.total) : ''}
-                      </div>
-                      <div
-                        className="w-full bg-brass rounded-t-md"
-                        style={{ height: (b.total / max) * 100 + '%', minHeight: b.total > 0 ? '4px' : '0' }}
-                      />
-                      <div className="text-[10px] text-ink/50">{b.label}</div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
+            <SalesChart monthlyChart={stats.monthlyChart} />
           </div>
 
           {(stats.topDebtors.length > 0 || stats.overdueInvoices.length > 0) && (
