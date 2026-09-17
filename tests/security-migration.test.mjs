@@ -60,3 +60,15 @@ test('customer and product forms queue only safe create and update operations wh
     assert.match(source, /readSnapshot\(/);
   }
 });
+
+test('phase three coalesces local-record edits and lets users manage queued failures', () => {
+  const queue = readFileSync(new URL('../lib/offlineQueue.js', import.meta.url), 'utf8');
+  const status = readFileSync(new URL('../components/OfflineSyncStatus.js', import.meta.url), 'utf8');
+  assert.match(queue, /entry\.id === targetId && entry\.table === table && entry\.operation === 'create'/);
+  assert.match(queue, /if \(existing && operation === 'update'\)/);
+  assert.match(queue, /if \(existing && operation === 'delete'\)/);
+  assert.match(queue, /export async function discardQueuedMutation/);
+  assert.match(status, /مدیریت تغییرات/);
+  assert.match(status, /حذف از صف/);
+  assert.match(status, /entry\.lastError/);
+});
