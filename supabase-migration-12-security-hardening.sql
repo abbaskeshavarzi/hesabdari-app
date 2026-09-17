@@ -83,7 +83,9 @@ create or replace function create_invoice_with_items(
   p_issue_date date,
   p_description text,
   p_status text,
-  p_items jsonb
+  p_items jsonb,
+  p_discount_type text default 'amount',
+  p_discount_value numeric default 0
 )
 returns uuid
 language plpgsql
@@ -92,6 +94,8 @@ set search_path = public
 as $$
 declare
   v_invoice_id uuid;
+  v_subtotal numeric := 0;
+  v_discount_amount numeric := 0;
   v_total numeric := 0;
   item jsonb;
   v_product_id uuid;
@@ -109,11 +113,15 @@ begin
   if jsonb_array_length(p_items) = 0 then raise exception 'حداقل یک قلم کالا لازم است.'; end if;
 
   select coalesce(sum((i->>'quantity')::numeric * coalesce((i->>'unit_price')::numeric, 0)), 0)
-  into v_total
+  into v_subtotal
   from jsonb_array_elements(p_items) i;
 
-  insert into invoices (customer_id, invoice_number, issue_date, total_amount, description, status, user_id)
-  values (p_customer_id, p_invoice_number, p_issue_date, v_total, p_description, coalesce(p_status, 'معوق'), v_user_id)
+  v_discount_amount := case when p_discount_type = 'percent' then v_subtotal * coalesce(p_discount_value, 0) / 100 else coalesce(p_discount_value, 0) end;
+  v_discount_amount := greatest(0, least(v_subtotal, v_discount_amount));
+  v_total := v_subtotal - v_discount_amount;
+
+  insert into invoices (customer_id, invoice_number, issue_date, total_amount, description, status, discount_type, discount_value, discount_amount, user_id)
+  values (p_customer_id, p_invoice_number, p_issue_date, v_total, p_description, coalesce(p_status, 'معوق'), coalesce(p_discount_type, 'amount'), coalesce(p_discount_value, 0), v_discount_amount, v_user_id)
   returning id into v_invoice_id;
 
   for item in select * from jsonb_array_elements(p_items)
@@ -251,8 +259,8 @@ begin
 end;
 $$;
 
-revoke all on function create_invoice_with_items(uuid, text, date, text, text, jsonb) from public;
-grant execute on function create_invoice_with_items(uuid, text, date, text, text, jsonb) to authenticated;
+revoke all on function create_invoice_with_items(uuid, text, date, text, text, jsonb, text, numeric) from public;
+grant execute on function create_invoice_with_items(uuid, text, date, text, text, jsonb, text, numeric) to authenticated;
 revoke all on function delete_invoice_and_restore_stock(uuid) from public;
 grant execute on function delete_invoice_and_restore_stock(uuid) to authenticated;
 revoke all on function get_dashboard_stats() from public;

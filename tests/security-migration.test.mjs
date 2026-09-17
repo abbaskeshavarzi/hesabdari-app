@@ -84,3 +84,18 @@ test('phase four preserves customer dependencies for offline payments', () => {
   assert.match(payments, /dependsOn: localCustomer\?\.id \|\| null/);
   assert.match(payments, /pendingPayments/);
 });
+
+test('phase five queues invoice RPCs and keeps discount handling on the secure server function', () => {
+  const queue = readFileSync(new URL('../lib/offlineQueue.js', import.meta.url), 'utf8');
+  const invoices = readFileSync(new URL('../pages/invoices.js', import.meta.url), 'utf8');
+  const migration = readFileSync(new URL('../supabase-migration-12-security-hardening.sql', import.meta.url), 'utf8');
+  const migration13 = readFileSync(new URL('../supabase-migration-13-secure-invoice-discounts.sql', import.meta.url), 'utf8');
+  assert.match(queue, /entry\.operation === 'rpc' && entry\.rpc/);
+  assert.match(invoices, /operation: 'rpc', rpc: 'create_invoice_with_items'/);
+  assert.match(invoices, /OFF-\$\{Date\.now\(\)\}/);
+  assert.match(invoices, /فاکتور آفلاین برای کالای تازه‌ثبت‌شده ممکن نیست/);
+  assert.match(migration, /p_discount_type text default 'amount'/);
+  assert.match(migration, /v_discount_amount := greatest\(0, least\(v_subtotal, v_discount_amount\)\)/);
+  assert.match(migration13, /drop function if exists create_invoice_with_items\(uuid, text, date, text, text, jsonb\)/);
+  assert.match(migration13, /user_id = v_user_id/);
+});
