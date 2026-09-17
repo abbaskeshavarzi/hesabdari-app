@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import GlobalSearch from './GlobalSearch';
+import OfflineSyncStatus from './OfflineSyncStatus';
+import { clearOfflineData } from '../lib/offlineQueue';
 
 const NAV = [
   { href: '/', label: 'داشبورد', key: '01' },
@@ -98,6 +100,14 @@ export default function Layout({ children, title }) {
   }, [menuOpen]);
 
   async function handleSignOut() {
+    const userId = session?.user?.id;
+    if (userId) {
+      try {
+        await clearOfflineData(userId);
+      } catch {
+        // پاک‌سازی آفلاین نباید مانع خروج از حساب شود.
+      }
+    }
     await supabase.auth.signOut();
     if ('caches' in window) {
       const keys = await caches.keys();
@@ -254,9 +264,10 @@ export default function Layout({ children, title }) {
         {isOffline && (
           <div className="bg-brass/15 border border-brass/40 text-ink text-xs rounded-md px-3 py-2 mb-4 flex items-center gap-2">
             <span>📶</span>
-            <span>اتصال اینترنت قطع است. صفحاتی که قبلاً باز کرده‌اید قابل مشاهده‌اند، ولی ثبت یا ویرایش اطلاعات نیاز به اینترنت دارد.</span>
+            <span>اتصال اینترنت قطع است. مشتری‌ها و کالاها را می‌توانید ثبت یا ویرایش کنید؛ تغییرات پس از اتصال ارسال می‌شوند.</span>
           </div>
         )}
+        <OfflineSyncStatus userId={session.user.id} supabase={supabase} offline={isOffline} />
         {title && <h1 className="text-xl font-bold mb-6">{title}</h1>}
         {children}
       </main>

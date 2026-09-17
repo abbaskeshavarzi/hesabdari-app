@@ -40,3 +40,23 @@ test('ci runs the project test suite before build', () => {
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm run build/);
 });
+
+test('offline queue keeps mutations and snapshots scoped to the authenticated user', () => {
+  const queue = readFileSync(new URL('../lib/offlineQueue.js', import.meta.url), 'utf8');
+  const layout = readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
+  assert.match(queue, /queue\.createIndex\('by_user_created', \['userId', 'createdAt'\]\)/);
+  assert.match(queue, /key: `\$\{userId\}:\$\{name\}`/);
+  assert.match(queue, /export async function clearOfflineData\(userId\)/);
+  assert.match(layout, /clearOfflineData\(userId\)/);
+});
+
+test('customer and product forms queue only safe create and update operations while offline', () => {
+  for (const file of ['pages/customers.js', 'pages/products.js']) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert.match(source, /if \(isOffline\(\)\)/);
+    assert.match(source, /enqueueMutation\(/);
+    assert.match(source, /operation: form\.id \? 'update' : 'create'/);
+    assert.match(source, /cacheSnapshot\(/);
+    assert.match(source, /readSnapshot\(/);
+  }
+});
