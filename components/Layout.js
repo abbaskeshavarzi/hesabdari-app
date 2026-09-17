@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 import GlobalSearch from './GlobalSearch';
+import OfflineSyncStatus from './OfflineSyncStatus';
+import { clearOfflineData } from '../lib/offlineQueue';
 
 const NAV = [
   { href: '/', label: 'داشبورد', key: '01' },
@@ -15,8 +17,8 @@ const NAV = [
   { href: '/reports', label: 'گزارش فروش', key: '08' },
   { href: '/best-performers', label: 'پرفروش‌ترین‌ها', key: '09' },
   { href: '/profit-loss', label: 'سود و زیان', key: '10' },
-  { href: '/backup', label: 'پشتیبان‌گیری', key: '12' },
   { href: '/settings', label: 'تنظیمات', key: '11' },
+  { href: '/backup', label: 'پشتیبان‌گیری', key: '12' },
 ];
 
 export default function Layout({ children, title }) {
@@ -27,6 +29,8 @@ export default function Layout({ children, title }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const menuButtonRef = useRef(null);
+  const firstMenuItemRef = useRef(null);
 
   useEffect(() => {
     setIsOffline(!navigator.onLine);
@@ -68,8 +72,8 @@ export default function Layout({ children, title }) {
     supabase
       .from('business_settings')
       .select('name, logo_url')
-      .eq('id', 'default')
-      .single()
+      .eq('user_id', session.user.id)
+      .maybeSingle()
       .then(({ data }) => setBusiness(data || null));
   }, [session]);
 
@@ -82,6 +86,36 @@ export default function Layout({ children, title }) {
     setMenuOpen(false);
   }, [router.pathname]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    firstMenuItemRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
+
+  async function handleSignOut() {
+    const userId = session?.user?.id;
+    if (userId) {
+      try {
+        await clearOfflineData(userId);
+      } catch {
+        // پاک‌سازی آفلاین نباید مانع خروج از حساب شود.
+      }
+    }
+    await supabase.auth.signOut();
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    router.replace('/login');
+  }
+
   if (session === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center text-ink/60 text-sm">
@@ -93,13 +127,14 @@ export default function Layout({ children, title }) {
 
   const navList = (onNavigate) => (
     <>
-      {NAV.map((item) => {
+      {NAV.map((item, index) => {
         const active = router.pathname === item.href;
         return (
           <Link
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            ref={index === 0 ? firstMenuItemRef : undefined}
             className={`focus-ring flex items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors ${
               // متن آیتم فعال عمداً یک رنگ ثابت (نه text-ink) است: چون در حالت
               // تاریک ink روشن می‌شه و روی پس‌زمینه‌ی brass کنتراستش به ۲.۶:۱ افت می‌کنه (رد WCAG).
@@ -138,6 +173,7 @@ export default function Layout({ children, title }) {
               </svg>
             </button>
             <button
+              ref={menuButtonRef}
               onClick={() => setMenuOpen((v) => !v)}
               aria-label={menuOpen ? 'بستن منو' : 'باز کردن منو'}
               aria-expanded={menuOpen}
@@ -173,7 +209,7 @@ export default function Layout({ children, title }) {
               {dark ? '☀️ حالت روشن' : '🌙 حالت تاریک'}
             </button>
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={handleSignOut}
               className="focus-ring text-xs text-gray-400 hover:text-white underline underline-offset-2"
             >
               خروج از حساب
@@ -217,7 +253,7 @@ export default function Layout({ children, title }) {
             {dark ? '☀️ حالت روشن' : '🌙 حالت تاریک'}
           </button>
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={handleSignOut}
             className="focus-ring text-xs text-gray-400 hover:text-white underline underline-offset-2"
           >
             خروج از حساب
@@ -228,9 +264,10 @@ export default function Layout({ children, title }) {
         {isOffline && (
           <div className="bg-brass/15 border border-brass/40 text-ink text-xs rounded-md px-3 py-2 mb-4 flex items-center gap-2">
             <span>📶</span>
-            <span>اتصال اینترنت قطع است. صفحاتی که قبلاً باز کرده‌اید قابل مشاهده‌اند، ولی ثبت یا ویرایش اطلاعات نیاز به اینترنت دارد.</span>
+            <span>اتصال اینترنت قطع است. مشتری‌ها و کالاها را می‌توانید ثبت یا ویرایش کنید؛ تغییرات پس از اتصال ارسال می‌شوند.</span>
           </div>
         )}
+        <OfflineSyncStatus userId={session.user.id} supabase={supabase} offline={isOffline} />
         {title && <h1 className="text-xl font-bold mb-6">{title}</h1>}
         {children}
       </main>

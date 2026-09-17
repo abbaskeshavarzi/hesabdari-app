@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
+import { cacheSnapshot, enqueueMutation, isOffline, readSnapshot } from '../lib/offlineQueue';
 
 const PAGE_SIZE = 15;
 
@@ -48,8 +49,19 @@ export default function Customers() {
 
   async function load() {
     setLoading(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (isOffline() && userId) {
+      const cached = await readSnapshot(userId, 'customer_balances');
+      setRows(cached || []);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase.from('customer_balances').select('*').order('name');
-    if (!error) setRows(data || []);
+    if (!error) {
+      setRows(data || []);
+      if (userId) await cacheSnapshot(userId, 'customer_balances', data || []);
+    }
     setLoading(false);
   }
 
@@ -60,16 +72,26 @@ export default function Customers() {
       setError('نام مشتری الزامی است.');
       return;
     }
+    const payload = { name: form.name.trim(), phone: form.phone, address: form.address };
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return setError('برای ثبت تغییرات باید وارد حساب شوید.');
+    if (isOffline()) {
+      const queued = await enqueueMutation({ userId: authData.user.id, table: 'customers', operation: form.id ? 'update' : 'create', payload, targetId: form.id || null });
+      if (form.id) {
+        setRows((current) => current.map((row) => row.customer_id === form.id ? { ...row, ...payload } : row));
+      } else {
+        setRows((current) => [...current, { customer_id: queued.id, ...payload, balance: 0, offline: true }]);
+      }
+      window.dispatchEvent(new Event('offline-queue-changed'));
+      setForm(emptyForm);
+      setShowForm(false);
+      return;
+    }
     if (form.id) {
-      const { error } = await supabase
-        .from('customers')
-        .update({ name: form.name, phone: form.phone, address: form.address })
-        .eq('id', form.id);
+      const { error } = await supabase.from('customers').update(payload).eq('id', form.id);
       if (error) return setError(friendlyError(error, 'خطا در ویرایش مشتری. لطفاً دوباره تلاش کنید.'));
     } else {
-      const { error } = await supabase
-        .from('customers')
-        .insert({ name: form.name, phone: form.phone, address: form.address });
+      const { error } = await supabase.from('customers').insert(payload);
       if (error) return setError(friendlyError(error, 'خطا در ثبت مشتری. لطفاً دوباره تلاش کنید.'));
     }
     setForm(emptyForm);

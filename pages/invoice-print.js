@@ -31,12 +31,15 @@ export default function InvoicePrint() {
       .select('*')
       .eq('invoice_id', id)
       .then(({ data }) => setItems(data || []));
-    supabase
-      .from('business_settings')
-      .select('*')
-      .eq('id', 'default')
-      .single()
-      .then(({ data }) => setBusiness(data || null));
+    supabase.auth.getUser().then(({ data: authData }) => {
+      if (!authData?.user) return;
+      supabase
+        .from('business_settings')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .maybeSingle()
+        .then(({ data }) => setBusiness(data || null));
+    });
   }, [id]);
 
   async function saveAsPdf() {

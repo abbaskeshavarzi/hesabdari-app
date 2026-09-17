@@ -32,6 +32,20 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function rowsForCurrentUser(rows, userId) {
+  return (rows || []).map((row) => {
+    if (!row || typeof row !== 'object') return row;
+    return { ...row, user_id: userId };
+  });
+}
+
+function validateBackupFile(parsed) {
+  if (!parsed || typeof parsed !== 'object' || !parsed.tables || typeof parsed.tables !== 'object') {
+    throw new Error('invalid');
+  }
+  return parsed;
+}
+
 export default function Backup() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -45,7 +59,15 @@ export default function Backup() {
     setError('');
     setMessage('');
     try {
-      const result = { exported_at: new Date().toISOString(), tables: {} };
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user) throw authError || new Error('auth-required');
+      const result = {
+        exported_at: new Date().toISOString(),
+        app: 'hesabdari-app',
+        version: 2,
+        user_id: authData.user.id,
+        tables: {},
+      };
       for (const table of EXPORT_TABLES) {
         const { data, error } = await supabase.from(table).select('*');
         if (error) throw error;
@@ -75,8 +97,7 @@ export default function Backup() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(reader.result);
-        if (!parsed.tables) throw new Error('invalid');
+        const parsed = validateBackupFile(JSON.parse(reader.result));
         setFileData(parsed);
         setFileName(file.name);
       } catch {
@@ -99,8 +120,11 @@ export default function Backup() {
     setError('');
     setMessage('');
     try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user) throw authError || new Error('auth-required');
+
       for (const table of IMPORT_ORDER) {
-        const rows = fileData.tables[table];
+        const rows = rowsForCurrentUser(fileData.tables[table], authData.user.id);
         if (!rows || rows.length === 0) continue;
         const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
         if (error) throw error;
@@ -122,7 +146,7 @@ export default function Backup() {
       <div className="bg-surface border border-line rounded-xl p-5 mb-6">
         <h2 className="font-bold mb-2">خروجی گرفتن (دانلود پشتیبان)</h2>
         <p className="text-xs text-ink/60 mb-4">
-          یک فایل کامل شامل تمام اطلاعات کسب‌وکار (مشتریان، کالاها، فاکتورها، پرداخت‌ها، هزینه‌ها و...) دانلود می‌شود.
+          یک فایل کامل شامل اطلاعات قابل‌دسترسی همین حساب کاربری (مشتریان، کالاها، فاکتورها، پرداخت‌ها، هزینه‌ها و...) دانلود می‌شود.
           پیشنهاد می‌شود این فایل را جایی امن (مثل گوگل‌درایو یا ایمیل خودتان) نگه دارید.
         </p>
         <button
@@ -138,7 +162,7 @@ export default function Backup() {
         <h2 className="font-bold mb-2">بازیابی از فایل پشتیبان</h2>
         <p className="text-xs text-badText mb-4">
           توجه: این کار اطلاعات فعلی را با اطلاعات فایل جایگزین/ترکیب می‌کند و برگشت‌پذیر نیست. فقط از فایل‌هایی
-          استفاده کنید که خودتان از همین اپ خروجی گرفته‌اید.
+          استفاده کنید که خودتان از همین اپ خروجی گرفته‌اید. هنگام بازیابی، داده‌ها به حساب کاربری فعلی متصل می‌شوند.
         </p>
         <input
           type="file"

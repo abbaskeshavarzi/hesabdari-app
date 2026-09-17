@@ -6,6 +6,7 @@ import { TableSkeleton } from '../components/Skeleton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
+import { cacheSnapshot, enqueueMutation, isOffline, readSnapshot } from '../lib/offlineQueue';
 
 const PAGE_SIZE = 15;
 
@@ -31,8 +32,16 @@ export default function Products() {
 
   async function load() {
     setLoading(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (isOffline() && userId) {
+      setRows((await readSnapshot(userId, 'products')) || []);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase.from('products').select('*').order('name');
     setRows(data || []);
+    if (userId) await cacheSnapshot(userId, 'products', data || []);
     setLoading(false);
   }
 
@@ -43,19 +52,28 @@ export default function Products() {
       setError('نام کالا و قیمت الزامی است.');
       return;
     }
+    const payload = form.id
+      ? { name: form.name.trim(), unit: form.unit, price: Number(form.price) }
+      : { name: form.name.trim(), unit: form.unit, price: Number(form.price), stock_qty: Number(form.stock_qty || 0) };
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return setError('برای ثبت تغییرات باید وارد حساب شوید.');
+    if (isOffline()) {
+      const queued = await enqueueMutation({ userId: authData.user.id, table: 'products', operation: form.id ? 'update' : 'create', payload, targetId: form.id || null });
+      if (form.id) {
+        setRows((current) => current.map((row) => row.id === form.id ? { ...row, ...payload } : row));
+      } else {
+        setRows((current) => [...current, { id: queued.id, ...payload, offline: true }]);
+      }
+      window.dispatchEvent(new Event('offline-queue-changed'));
+      setForm(emptyForm);
+      setShowForm(false);
+      return;
+    }
     if (form.id) {
-      const { error } = await supabase
-        .from('products')
-        .update({ name: form.name, unit: form.unit, price: Number(form.price) })
-        .eq('id', form.id);
+      const { error } = await supabase.from('products').update(payload).eq('id', form.id);
       if (error) return setError(friendlyError(error, 'خطا در ویرایش کالا. لطفاً دوباره تلاش کنید.'));
     } else {
-      const { error } = await supabase.from('products').insert({
-        name: form.name,
-        unit: form.unit,
-        price: Number(form.price),
-        stock_qty: Number(form.stock_qty || 0),
-      });
+      const { error } = await supabase.from('products').insert(payload);
       if (error) return setError(friendlyError(error, 'خطا در ثبت کالا. لطفاً دوباره تلاش کنید.'));
     }
     setForm(emptyForm);

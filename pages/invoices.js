@@ -11,6 +11,7 @@ import { friendlyError } from '../lib/errorMessages';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
+import { cacheSnapshot, enqueueMutation, isOffline, queuedMutations, readSnapshot } from '../lib/offlineQueue';
 
 const PAGE_SIZE = 15;
 
@@ -69,15 +70,27 @@ export default function Invoices() {
 
   async function load() {
     setLoading(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (isOffline() && userId) {
+      const [cachedCustomers, cachedProducts, cachedInvoices, queued] = await Promise.all([
+        readSnapshot(userId, 'invoice-customers'), readSnapshot(userId, 'products'),
+        readSnapshot(userId, 'invoices'), queuedMutations(userId),
+      ]);
+      const pendingInvoices = queued.filter((entry) => entry.operation === 'rpc' && entry.rpc === 'create_invoice_with_items').map((entry) => ({
+        id: entry.id, invoice_number: entry.payload.p_invoice_number, issue_date: entry.payload.p_issue_date,
+        total_amount: entry.payload.p_items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0),
+        description: entry.payload.p_description, status: entry.payload.p_status, customer_id: entry.payload.p_customer_id,
+        customers: { name: (cachedCustomers || []).find((customer) => customer.id === entry.payload.p_customer_id)?.name || 'مشتری جدید' }, offline: true,
+      }));
+      setCustomers(cachedCustomers || []); setProducts(cachedProducts || []); setInvoices([...(cachedInvoices || []), ...pendingInvoices]);
+      setLoading(false); return;
+    }
     const { data: custs } = await supabase.from('customers').select('id, name').order('name');
     const { data: prods } = await supabase.from('products').select('id, name, price, unit, stock_qty').order('name');
-    const { data: invs } = await supabase
-      .from('invoices')
-      .select('id, invoice_number, issue_date, total_amount, discount_amount, description, status, customer_id, customers(name)')
-      .order('issue_date', { ascending: false });
-    setCustomers(custs || []);
-    setProducts(prods || []);
-    setInvoices(invs || []);
+    const { data: invs } = await supabase.from('invoices').select('id, invoice_number, issue_date, total_amount, discount_amount, description, status, customer_id, customers(name)').order('issue_date', { ascending: false });
+    setCustomers(custs || []); setProducts(prods || []); setInvoices(invs || []);
+    if (userId) await Promise.all([cacheSnapshot(userId, 'invoice-customers', custs || []), cacheSnapshot(userId, 'invoices', invs || [])]);
     setLoading(false);
   }
 
@@ -167,23 +180,30 @@ export default function Invoices() {
     setFieldErrors({});
 
     setSubmitting(true);
-    // این عملیات به‌صورت اتمیک روی دیتابیس انجام می‌شود: ثبت فاکتور + اقلام + کسر
-    // موجودی همه با هم موفق یا همه با هم لغو می‌شوند (بدون ریسک ناهماهنگی داده).
-    const { error: rpcErr } = await supabase.rpc('create_invoice_with_items', {
+    const payload = {
       p_customer_id: header.customer_id,
       p_invoice_number: header.invoice_number || null,
       p_issue_date: header.issue_date,
       p_description: header.description,
       p_status: header.status,
-      p_items: validLines.map((l) => ({
-        product_id: l.product_id || null,
-        product_name: l.product_name,
-        quantity: Number(l.quantity),
-        unit_price: Number(l.unit_price) || 0,
-      })),
-      p_discount_type: header.discount_type || 'amount',
-      p_discount_value: discountValueNum,
-    });
+      p_items: validLines.map((l) => ({ product_id: l.product_id || null, product_name: l.product_name, quantity: Number(l.quantity), unit_price: Number(l.unit_price) || 0 })),
+      p_discount_type: header.discount_type || 'amount', p_discount_value: discountValueNum,
+    };
+    if (isOffline()) {
+      const { data: authData } = await supabase.auth.getUser();
+      const queued = authData.user ? await queuedMutations(authData.user.id) : [];
+      const localProduct = payload.p_items.find((item) => queued.some((entry) => entry.id === item.product_id && entry.table === 'products' && entry.operation === 'create'));
+      if (localProduct) { setSubmitting(false); return setError('فاکتور آفلاین برای کالای تازه‌ثبت‌شده ممکن نیست؛ ابتدا کالا را همگام‌سازی کنید.'); }
+      const localCustomer = queued.find((entry) => entry.id === payload.p_customer_id && entry.table === 'customers' && entry.operation === 'create');
+      if (!authData.user) { setSubmitting(false); return setError('برای ثبت فاکتور باید وارد حساب شوید.'); }
+      const temporaryNumber = payload.p_invoice_number || `OFF-${Date.now()}`;
+      const entry = await enqueueMutation({ userId: authData.user.id, table: 'invoices', operation: 'rpc', rpc: 'create_invoice_with_items', payload: { ...payload, p_invoice_number: temporaryNumber }, dependsOn: localCustomer?.id || null });
+      const customerName = customers.find((customer) => customer.id === payload.p_customer_id)?.name || 'مشتری جدید';
+      setInvoices((current) => [{ id: entry.id, invoice_number: temporaryNumber, issue_date: payload.p_issue_date, total_amount: finalTotal, discount_amount: discountAmount, description: payload.p_description, status: payload.p_status, customer_id: payload.p_customer_id, customers: { name: customerName }, offline: true }, ...current]);
+      window.dispatchEvent(new Event('offline-queue-changed')); setSubmitting(false); setShowForm(false); return;
+    }
+    // این عملیات به‌صورت اتمیک روی دیتابیس انجام می‌شود: ثبت فاکتور + اقلام + کسر موجودی.
+    const { error: rpcErr } = await supabase.rpc('create_invoice_with_items', payload);
     setSubmitting(false);
 
     if (rpcErr) {

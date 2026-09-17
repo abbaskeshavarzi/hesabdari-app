@@ -3,7 +3,8 @@
 // توجه: خواندن/ثبت اطلاعات جدید (که از طریق Supabase انجام می‌شود) همچنان به اینترنت نیاز دارد؛
 // این کش فقط برای نمایش پوسته و صفحات قبلاً بازدیدشده‌ی خود اپ است.
 
-const CACHE_NAME = 'nobar-cache-v2';
+const CACHE_NAME = 'nobar-cache-v3';
+const SENSITIVE_PATHS = ['/backup', '/invoice-print'];
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -25,6 +26,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // فقط فایل‌های خود همین سایت کش می‌شوند؛ درخواست‌های Supabase (داده‌های زنده) کش نمی‌شوند
   if (url.origin !== self.location.origin) return;
+
+  if (SENSITIVE_PATHS.some((path) => url.pathname.includes(path))) return;
+
+  const isStaticAsset =
+    url.pathname.includes('/_next/static/') ||
+    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.includes('/icons/') ||
+    url.pathname.endsWith('/favicon.png') ||
+    ['style', 'script', 'image', 'font'].includes(req.destination);
+
+  if (!isStaticAsset && req.mode !== 'navigate') return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
