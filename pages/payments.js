@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { supabase } from '../lib/supabaseClient';
 import { friendlyError } from '../lib/errorMessages';
+import { cacheSnapshot, enqueueMutation, isOffline, queuedMutations, readSnapshot } from '../lib/offlineQueue';
 
 const PAGE_SIZE = 15;
 
@@ -38,13 +39,35 @@ export default function Payments() {
 
   async function load() {
     setLoading(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (isOffline() && userId) {
+      const [cachedCustomers, cachedPayments, queued] = await Promise.all([
+        readSnapshot(userId, 'customer_balances'),
+        readSnapshot(userId, 'payments'),
+        queuedMutations(userId),
+      ]);
+      const pendingCustomers = queued
+        .filter((entry) => entry.table === 'customers' && entry.operation === 'create')
+        .map((entry) => ({ id: entry.id, name: entry.payload.name }));
+      const knownCustomers = (cachedCustomers || []).map((customer) => ({ id: customer.customer_id, name: customer.name }));
+      const selectableCustomers = [...knownCustomers, ...pendingCustomers];
+      const pendingPayments = queued
+        .filter((entry) => entry.table === 'payments' && entry.operation === 'create')
+        .map((entry) => {
+          const customer = selectableCustomers.find((item) => item.id === entry.payload.customer_id);
+          return { id: entry.id, ...entry.payload, customers: { name: customer?.name || 'مشتری جدید' } };
+        });
+      setCustomers([...knownCustomers, ...pendingCustomers]);
+      setPayments([...(cachedPayments || []), ...pendingPayments]);
+      setLoading(false);
+      return;
+    }
     const { data: custs } = await supabase.from('customers').select('id, name').order('name');
-    const { data: pays } = await supabase
-      .from('payments')
-      .select('id, amount, payment_date, note, customer_id, customers(name)')
-      .order('payment_date', { ascending: false });
+    const { data: pays } = await supabase.from('payments').select('id, amount, payment_date, note, customer_id, customers(name)').order('payment_date', { ascending: false });
     setCustomers(custs || []);
     setPayments(pays || []);
+    if (userId) await cacheSnapshot(userId, 'payments', pays || []);
     setLoading(false);
   }
 
@@ -55,12 +78,26 @@ export default function Payments() {
       setError('انتخاب مشتری و مبلغ پرداخت الزامی است.');
       return;
     }
-    const { error } = await supabase.from('payments').insert({
+    const payload = {
       customer_id: form.customer_id,
       amount: Number(form.amount),
       payment_date: form.payment_date,
       note: form.note,
-    });
+    };
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return setError('برای ثبت تغییرات باید وارد حساب شوید.');
+    if (isOffline()) {
+      const queued = await queuedMutations(authData.user.id);
+      const localCustomer = queued.find((entry) => entry.id === form.customer_id && entry.table === 'customers' && entry.operation === 'create');
+      const entry = await enqueueMutation({ userId: authData.user.id, table: 'payments', operation: 'create', payload, dependsOn: localCustomer?.id || null });
+      const customerName = customers.find((customer) => customer.id === form.customer_id)?.name || 'مشتری جدید';
+      setPayments((current) => [{ id: entry.id, ...payload, customers: { name: customerName }, offline: true }, ...current]);
+      window.dispatchEvent(new Event('offline-queue-changed'));
+      setForm(emptyForm);
+      setShowForm(false);
+      return;
+    }
+    const { error } = await supabase.from('payments').insert(payload);
     if (error) return setError(friendlyError(error, 'خطا در ثبت پرداخت. لطفاً دوباره تلاش کنید.'));
     setForm(emptyForm);
     setShowForm(false);

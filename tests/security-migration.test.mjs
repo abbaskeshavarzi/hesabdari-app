@@ -72,3 +72,15 @@ test('phase three coalesces local-record edits and lets users manage queued fail
   assert.match(status, /حذف از صف/);
   assert.match(status, /entry\.lastError/);
 });
+
+test('phase four preserves customer dependencies for offline payments', () => {
+  const queue = readFileSync(new URL('../lib/offlineQueue.js', import.meta.url), 'utf8');
+  const payments = readFileSync(new URL('../pages/payments.js', import.meta.url), 'utf8');
+  assert.match(queue, /dependsOn = null/);
+  assert.match(queue, /entry\.dependsOn && \(await queuedMutations\(userId\)\)\.some/);
+  assert.match(queue, /replaceQueuedCustomerReferences/);
+  assert.match(queue, /insert\(entry\.payload\)\.select\('id'\)\.single\(\)/);
+  assert.match(payments, /table: 'payments', operation: 'create'/);
+  assert.match(payments, /dependsOn: localCustomer\?\.id \|\| null/);
+  assert.match(payments, /pendingPayments/);
+});
