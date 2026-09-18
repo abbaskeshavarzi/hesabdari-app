@@ -5,20 +5,22 @@ import { supabase } from '../lib/supabaseClient';
 import GlobalSearch from './GlobalSearch';
 
 const NAV = [
-  { href: '/', label: 'داشبورد', key: '01' },
-  { href: '/customers', label: 'مشتریان', key: '02' },
-  { href: '/suppliers', label: 'تأمین‌کنندگان', key: '03' },
-  { href: '/products', label: 'کالاها', key: '04' },
-  { href: '/inventory', label: 'انبار', key: '05' },
-  { href: '/invoices', label: 'فاکتورها', key: '06' },
-  { href: '/payments', label: 'دریافت و پرداخت', key: '07' },
-  { href: '/financial-accounts', label: 'حساب‌های مالی', key: '08' },
-  { href: '/expenses', label: 'هزینه‌ها', key: '08' },
-  { href: '/reports', label: 'گزارش فروش', key: '09' },
-  { href: '/best-performers', label: 'پرفروش‌ترین‌ها', key: '10' },
-  { href: '/profit-loss', label: 'سود و زیان', key: '11' },
-  { href: '/backup', label: 'پشتیبان‌گیری', key: '13' },
-  { href: '/settings', label: 'تنظیمات', key: '12' },
+  { href: '/', label: 'داشبورد', key: '01', permission: 'reports.view' },
+  { href: '/customers', label: 'مشتریان', key: '02', permission: 'customers.view' },
+  { href: '/suppliers', label: 'تأمین‌کنندگان', key: '03', permission: 'suppliers.view' },
+  { href: '/products', label: 'کالاها', key: '04', permission: 'products.view' },
+  { href: '/inventory', label: 'انبار', key: '05', permission: 'inventory.view' },
+  { href: '/invoices', label: 'فاکتورها', key: '06', permission: 'invoices.view' },
+  { href: '/payments', label: 'دریافت و پرداخت', key: '07', permission: 'payments.view' },
+  { href: '/financial-accounts', label: 'حساب‌های مالی', key: '08', permission: 'financial_accounts.view' },
+  { href: '/expenses', label: 'هزینه‌ها', key: '08', permission: 'expenses.view' },
+  { href: '/reports', label: 'گزارش فروش', key: '09', permission: 'reports.view' },
+  { href: '/best-performers', label: 'پرفروش‌ترین‌ها', key: '10', permission: 'reports.view' },
+  { href: '/profit-loss', label: 'سود و زیان', key: '11', permission: 'reports.view' },
+  { href: '/backup', label: 'پشتیبان‌گیری', key: '13', permission: 'backup.view' },
+  { href: '/settings', label: 'تنظیمات', key: '12', permission: 'settings.view' },
+  { href: '/users', label: 'کاربران', key: '15', permission: 'users.view' },
+  { href: '/audit-logs', label: 'گزارش حسابرسی', key: '16', permission: 'audit_logs.view' },
   { href: '/profile', label: 'پروفایل', key: '14' },
 ];
 
@@ -30,6 +32,8 @@ export default function Layout({ children, title }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const [permissions, setPermissions] = useState(null);
+  const [permissionLoading, setPermissionLoading] = useState(false);
 
   useEffect(() => {
     setIsOffline(!navigator.onLine);
@@ -68,6 +72,11 @@ export default function Layout({ children, title }) {
 
   useEffect(() => {
     if (!session) return;
+    setPermissionLoading(true);
+    supabase.rpc('get_my_permissions').then(({ data }) => {
+      setPermissions(new Set((data || []).map((x) => x.permission_key)));
+      setPermissionLoading(false);
+    });
     supabase
       .from('business_settings')
       .select('name, logo_url')
@@ -93,10 +102,17 @@ export default function Layout({ children, title }) {
     );
   }
   if (!session) return null;
+  if (permissionLoading || permissions === null) {
+    return <div className="min-h-screen flex items-center justify-center text-ink/60 text-sm">در حال بررسی دسترسی…</div>;
+  }
+  const routePermission = NAV.find((item) => item.href === router.pathname)?.permission;
+  if (routePermission && !permissions.has(routePermission)) {
+    return <div className="min-h-screen flex items-center justify-center p-6"><div className="max-w-md w-full bg-surface border border-line rounded-xl p-6 text-center"><div className="text-3xl mb-3">🔒</div><h1 className="font-bold text-lg mb-2">دسترسی مجاز نیست</h1><p className="text-sm text-ink/60">نقش فعلی شما اجازه دسترسی به این بخش را ندارد.</p><button onClick={() => router.push('/')} className="focus-ring mt-5 bg-ink text-white rounded-md px-4 py-2 text-sm">بازگشت به داشبورد</button></div></div>;
+  }
 
   const navList = (onNavigate) => (
     <>
-      {NAV.map((item) => {
+      {NAV.filter((item) => !item.permission || permissions.has(item.permission)).map((item) => {
         const active = router.pathname === item.href;
         return (
           <Link
