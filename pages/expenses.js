@@ -59,33 +59,20 @@ export default function Expenses() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.amount || Number(form.amount) <= 0) {
-      setError('مبلغ معتبر الزامی است.');
-      return;
-    }
-    if (form.id) {
-      const { error } = await supabase
-        .from('expenses')
-        .update({
-          category: form.category,
-          amount: Number(form.amount),
-          expense_date: form.expense_date,
-          description: form.description,
-        })
-        .eq('id', form.id);
-      if (error) return setError(friendlyError(error, 'خطا در ویرایش هزینه. لطفاً دوباره تلاش کنید.'));
-    } else {
-      const { error } = await supabase.from('expenses').insert({
-        category: form.category,
-        amount: Number(form.amount),
-        expense_date: form.expense_date,
-        description: form.description,
-      });
-      if (error) return setError(friendlyError(error, 'خطا در ثبت هزینه. لطفاً دوباره تلاش کنید.'));
-    }
-    setForm(emptyForm);
-    setShowForm(false);
-    load();
+    if (!form.amount || Number(form.amount) <= 0) return setError('مبلغ معتبر الزامی است.');
+    const { data: expenseAccount } = await supabase.from('chart_of_accounts').select('id').eq('code', '5100').eq('account_type', 'EXPENSE').eq('is_active', true).limit(1).maybeSingle();
+    const { data: financialAccount } = await supabase.from('financial_accounts').select('id').eq('is_active', true).limit(1).maybeSingle();
+    if (!expenseAccount?.id || !financialAccount?.id) return setError('برای ثبت هزینه باید حساب هزینه 5100 و حداقل یک حساب مالی فعال وجود داشته باشد.');
+    const { error: rpcError } = await supabase.rpc('post_expense', {
+      p_category: form.category,
+      p_amount: Number(form.amount),
+      p_expense_date: form.expense_date,
+      p_financial_account_id: financialAccount.id,
+      p_expense_account_id: expenseAccount.id,
+      p_description: form.description || null,
+    });
+    if (rpcError) return setError(friendlyError(rpcError, 'ثبت هزینه انجام نشد.'));
+    setForm(emptyForm); setShowForm(false); await load();
   }
 
   function editRow(r) {
