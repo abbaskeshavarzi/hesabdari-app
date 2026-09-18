@@ -156,7 +156,7 @@ begin
   end if;
 
   -- Serialize restores for the same organization so two imports cannot race.
-  perform pg_advisory_xact_lock(hashtextextended(v_org::text, 184467));
+  perform pg_advisory_xact_lock(hashtextextended(v_org::text, 104729));
 
   v_validation := private.validate_business_backup_payload(p_payload);
 
@@ -198,34 +198,18 @@ begin
   -- restored only for rows newly inserted by this operation.
   v_rows := coalesce(p_payload->'tables'->'chart_of_accounts', '[]'::jsonb);
   if jsonb_array_length(v_rows) > 0 then
-    insert into public.chart_of_accounts
-      (id,organization_id,code,name,account_type,parent_id,is_active,created_at)
-    select r.id,r.organization_id,r.code,r.name,r.account_type,null,r.is_active,r.created_at
-    from jsonb_populate_recordset(null::public.chart_of_accounts,v_rows) r
-    on conflict do nothing
-    returning id::text into v_self_id;
-
-    get diagnostics v_table_inserted = row_count;
-    v_inserted := v_inserted + v_table_inserted;
-
-    if v_table_inserted > 0 then
-      for v_self_id in
-        select record_id from restore_inserted_ids where table_name='chart_of_accounts'
-      loop
-        null;
-      end loop;
-
-      -- Capture all chart IDs that now exist but were not present before is
-      -- handled by a second insert-select into the temp table.
-      insert into restore_inserted_ids(table_name,record_id)
-      select 'chart_of_accounts',r.id::text
+    for v_self_id in
+      insert into public.chart_of_accounts
+        (id,organization_id,code,name,account_type,parent_id,is_active,created_at)
+      select r.id,r.organization_id,r.code,r.name,r.account_type,null,r.is_active,r.created_at
       from jsonb_populate_recordset(null::public.chart_of_accounts,v_rows) r
-      where exists (select 1 from public.chart_of_accounts c where c.id=r.id and c.organization_id=v_org)
-        and not exists (
-          select 1 from restore_inserted_ids x
-          where x.table_name='chart_of_accounts' and x.record_id=r.id::text
-        );
-    end if;
+      on conflict do nothing
+      returning id::text
+    loop
+      insert into restore_inserted_ids(table_name,record_id)
+      values('chart_of_accounts',v_self_id);
+      v_inserted := v_inserted + 1;
+    end loop;
 
     update public.chart_of_accounts c
        set parent_id = r.parent_id
@@ -316,24 +300,18 @@ begin
   -- Journal headers are inserted without sequence-generated entry_number.
   v_rows := coalesce(p_payload->'tables'->'journal_entries', '[]'::jsonb);
   if jsonb_array_length(v_rows) > 0 then
-    insert into public.journal_entries
-      (id,organization_id,entry_date,description,source_type,source_id,status,created_by,created_at)
-    select r.id,r.organization_id,r.entry_date,r.description,r.source_type,r.source_id,r.status,r.created_by,r.created_at
-    from jsonb_populate_recordset(null::public.journal_entries,v_rows) r
-    on conflict do nothing
-    returning id::text into v_self_id;
-
-    get diagnostics v_table_inserted = row_count;
-    v_inserted := v_inserted + v_table_inserted;
-
-    insert into restore_inserted_ids(table_name,record_id)
-    select 'journal_entries',r.id::text
-    from jsonb_populate_recordset(null::public.journal_entries,v_rows) r
-    where exists (select 1 from public.journal_entries j where j.id=r.id and j.organization_id=v_org)
-      and not exists (
-        select 1 from restore_inserted_ids x
-        where x.table_name='journal_entries' and x.record_id=r.id::text
-      );
+    for v_self_id in
+      insert into public.journal_entries
+        (id,organization_id,entry_date,description,source_type,source_id,status,created_by,created_at)
+      select r.id,r.organization_id,r.entry_date,r.description,r.source_type,r.source_id,r.status,r.created_by,r.created_at
+      from jsonb_populate_recordset(null::public.journal_entries,v_rows) r
+      on conflict do nothing
+      returning id::text
+    loop
+      insert into restore_inserted_ids(table_name,record_id)
+      values('journal_entries',v_self_id);
+      v_inserted := v_inserted + 1;
+    end loop;
   end if;
 
   -- Journal lines are restored last.
