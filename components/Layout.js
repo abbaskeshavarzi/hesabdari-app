@@ -17,6 +17,7 @@ const NAV = [
   { href: '/profit-loss', label: 'سود و زیان', key: '10' },
   { href: '/backup', label: 'پشتیبان‌گیری', key: '12' },
   { href: '/settings', label: 'تنظیمات', key: '11' },
+  { href: '/profile', label: 'پروفایل', key: '13' },
 ];
 
 export default function Layout({ children, title }) {
