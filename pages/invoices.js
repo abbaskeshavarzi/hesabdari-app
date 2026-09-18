@@ -1,601 +1,143 @@
-import React, { useEffect, useState } from 'react';
+import React,{useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import {useRouter} from 'next/router';
 import Layout from '../components/Layout';
 import MoneyInput from '../components/MoneyInput';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import Pagination from '../components/Pagination';
-import { TableSkeleton } from '../components/Skeleton';
+import {TableSkeleton} from '../components/Skeleton';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { friendlyError } from '../lib/errorMessages';
-import { formatJalaliShort } from '../lib/dateFormat';
-import { downloadCsv } from '../lib/csv';
-import { supabase } from '../lib/supabaseClient';
+import {friendlyError} from '../lib/errorMessages';
+import {formatJalaliShort} from '../lib/dateFormat';
+import {downloadCsv} from '../lib/csv';
+import {supabase} from '../lib/supabaseClient';
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE=15;
+const EMPTY_LINE={product_id:'',product_name:'',quantity:'1',unit_price:''};
+const STATUS_LABELS={DRAFT:'پیش‌نویس',POSTED:'ثبت‌شده',VOIDED:'باطل‌شده'};
+const today=()=>new Date().toISOString().slice(0,10);
+const money=(n)=>new Intl.NumberFormat('fa-IR').format(Math.round(Number(n)||0))+' تومان';
 
-function formatToman(n) {
-  return new Intl.NumberFormat('fa-IR').format(Math.round(n || 0)) + ' تومان';
-}
+export default function Invoices(){
+ const router=useRouter();
+ const [invoices,setInvoices]=useState([]),[customers,setCustomers]=useState([]),[products,setProducts]=useState([]);
+ const [settings,setSettings]=useState({tax_enabled:false,tax_rate:0}),[loading,setLoading]=useState(true);
+ const [showForm,setShowForm]=useState(false),[editingId,setEditingId]=useState(null),[error,setError]=useState('');
+ const [submitting,setSubmitting]=useState(false),[search,setSearch]=useState(''),[expanded,setExpanded]=useState(null),[itemsCache,setItemsCache]=useState({});
+ const [page,setPage]=useState(1),[confirm,setConfirm]=useState({open:false,id:null,mode:null,busy:false});
+ const [header,setHeader]=useState({customer_id:'',invoice_number:'',issue_date:today(),due_date:today(),description:'',status:'DRAFT',discount_type:'amount',discount_value:'',tax_rate:0,shipping_amount:''});
+ const [lines,setLines]=useState([{...EMPTY_LINE}]);
 
-const emptyHeader = {
-  customer_id: '',
-  invoice_number: '',
-  issue_date: new Date().toISOString().slice(0, 10),
-  description: '',
-  status: 'معوق',
-  discount_type: 'amount',
-  discount_value: '',
-};
-const emptyLine = { product_id: '', product_name: '', quantity: '1', unit_price: '' };
+ useEffect(()=>{load();},[]);
+ useEffect(()=>{if(typeof router.query.search==='string')setSearch(router.query.search);},[router.query.search]);
 
-export default function Invoices() {
-  const [invoices, setInvoices] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [header, setHeader] = useState(emptyHeader);
-  const [lines, setLines] = useState([{ ...emptyLine }]);
-  const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState(null);
-  const [itemsCache, setItemsCache] = useState({});
-  const [page, setPage] = useState(1);
-  const router = useRouter();
+ async function load(){
+  setLoading(true);
+  const [{data:c},{data:p},{data:i},{data:s}]=await Promise.all([
+   supabase.from('customers').select('id,name').order('name'),
+   supabase.from('products').select('id,name,price,sale_price,unit,stock_qty').eq('is_active',true).order('name'),
+   supabase.from('invoices').select('id,invoice_number,issue_date,due_date,subtotal_amount,total_amount,discount_amount,tax_rate,tax_amount,shipping_amount,description,status,payment_status,customer_id,customers(name)').order('issue_date',{ascending:false}),
+   supabase.from('business_settings').select('tax_enabled,tax_rate').eq('id','default').single()
+  ]);
+  setCustomers(c||[]);setProducts(p||[]);setInvoices(i||[]);
+  setSettings({tax_enabled:!!s?.tax_enabled,tax_rate:Number(s?.tax_rate)||0});setLoading(false);
+ }
+ function openNew(){
+  setEditingId(null);setHeader({customer_id:'',invoice_number:'',issue_date:today(),due_date:today(),description:'',status:'DRAFT',discount_type:'amount',discount_value:'',tax_rate:settings.tax_rate,shipping_amount:''});
+  setLines([{...EMPTY_LINE}]);setError('');setShowForm(true);
+ }
+ async function openEdit(inv){
+  const {data,error:e}=await supabase.from('invoice_items').select('*').eq('invoice_id',inv.id).order('created_at');
+  if(e)return setError(friendlyError(e,'خطا در دریافت اقلام فاکتور.'));
+  setEditingId(inv.id);setHeader({customer_id:inv.customer_id||'',invoice_number:inv.invoice_number||'',issue_date:inv.issue_date||today(),due_date:inv.due_date||inv.issue_date||today(),description:inv.description||'',status:'DRAFT',discount_type:inv.discount_type||'amount',discount_value:inv.discount_value??'',tax_rate:Number(inv.tax_rate)||settings.tax_rate,shipping_amount:inv.shipping_amount??''});
+  setLines((data||[]).map(x=>({product_id:x.product_id||'',product_name:x.product_name||'',quantity:String(x.quantity),unit_price:String(x.unit_price)})));setError('');setShowForm(true);
+ }
+ function updateLine(i,patch){setLines(v=>v.map((x,n)=>n===i?{...x,...patch}:x));}
+ function pickProduct(i,id){const p=products.find(x=>x.id===id);updateLine(i,{product_id:id,product_name:p?.name||'',unit_price:String(p?.sale_price??p?.price??'')});}
+ function addLine(){setLines(v=>[...v,{...EMPTY_LINE}]);}
+ function removeLine(i){setLines(v=>v.length>1?v.filter((_,n)=>n!==i):v);}
+ const subtotal=useMemo(()=>lines.reduce((s,l)=>s+(Number(l.quantity)||0)*(Number(l.unit_price)||0),0),[lines]);
+ const discountValue=Number(header.discount_value)||0;
+ const discount=Math.min(subtotal,Math.max(0,header.discount_type==='percent'?subtotal*discountValue/100:discountValue));
+ const taxRate=settings.tax_enabled?Math.max(0,Math.min(100,Number(header.tax_rate)||0)):0;
+ const tax=Math.max(0,(subtotal-discount)*taxRate/100),shipping=Math.max(0,Number(header.shipping_amount)||0);
+ const total=Math.max(0,subtotal-discount+tax+shipping);
 
-  useEffect(() => {
-    load();
-  }, []);
+ async function submit(e){
+  e.preventDefault();setError('');
+  if(!header.customer_id||!header.issue_date||!header.due_date)return setError('مشتری، تاریخ صدور و سررسید الزامی است.');
+  if(header.due_date<header.issue_date)return setError('تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد.');
+  const valid=lines.filter(x=>x.product_name.trim()&&Number(x.quantity)>0&&Number(x.unit_price)>=0);
+  if(!valid.length)return setError('حداقل یک قلم معتبر لازم است.');
+  setSubmitting(true);
+  const args={p_customer_id:header.customer_id,p_invoice_number:header.invoice_number||null,p_issue_date:header.issue_date,p_due_date:header.due_date,p_description:header.description||null,p_items:valid.map(x=>({product_id:x.product_id||null,product_name:x.product_name.trim(),quantity:Number(x.quantity),unit_price:Number(x.unit_price)||0})),p_discount_type:header.discount_type,p_discount_value:discount,p_tax_rate:taxRate,p_shipping_amount:shipping};
+  const {error:e}=editingId?await supabase.rpc('update_draft_invoice_with_items',{...args,p_invoice_id:editingId}):await supabase.rpc('create_invoice_with_items',{...args,p_status:header.status});
+  setSubmitting(false);if(e)return setError(friendlyError(e,'خطا در ذخیره فاکتور.'));
+  setShowForm(false);setEditingId(null);await load();
+ }
+ function ask(id,mode){setConfirm({open:true,id,mode,busy:false});}
+ async function run(){
+  const {id,mode}=confirm;setConfirm(c=>({...c,busy:true}));
+  const rpc=mode==='post'?'post_invoice':mode==='void'?'void_invoice':'delete_invoice';
+  const {error:e}=await supabase.rpc(rpc,{p_invoice_id:id});
+  if(e){setConfirm({open:false,id:null,mode:null,busy:false});return setError(friendlyError(e,'عملیات فاکتور انجام نشد.'));}
+  setConfirm({open:false,id:null,mode:null,busy:false});await load();
+ }
+ async function toggle(id){
+  if(expanded===id)return setExpanded(null);setExpanded(id);
+  if(!itemsCache[id]){const {data}=await supabase.from('invoice_items').select('*').eq('invoice_id',id).order('created_at');setItemsCache(v=>({...v,[id]:data||[]}));}
+ }
+ const filtered=invoices.filter(i=>{const q=search.trim();return !q||(i.customers?.name||'').includes(q)||String(i.invoice_number||'').includes(q);});
+ useEffect(()=>setPage(1),[search]);
+ const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)),rows=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+ function csv(){downloadCsv('فاکتورهای حرفه‌ای.csv',['تاریخ','سررسید','مشتری','شماره','جمع اقلام','تخفیف','مالیات','ارسال','جمع کل','وضعیت'],filtered.map(i=>[i.issue_date,i.due_date,i.customers?.name||'',i.invoice_number||'',i.subtotal_amount,i.discount_amount,i.tax_amount,i.shipping_amount,i.total_amount,STATUS_LABELS[i.status]||i.status]));}
 
-  // پشتیبانی از دکمه‌ی «افزودن سریع» در داشبورد: /invoices?new=1
-  // چون openNewForm به لیست فاکتورهای بارگذاری‌شده نیاز داره (برای شماره‌گذاری خودکار)،
-  // صبر می‌کنیم تا loading تموم بشه، بعد فرم رو باز می‌کنیم (فقط یک‌بار).
-  useEffect(() => {
-    if (router.query.new === '1' && !loading && !showForm) {
-      openNewForm();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.query.new, loading]);
-
-  // پشتیبانی از کلیک روی ردیف در داشبورد: /invoices?search=...
-  useEffect(() => {
-    if (typeof router.query.search === 'string') {
-      setSearch(router.query.search);
-    }
-  }, [router.query.search]);
-
-  async function load() {
-    setLoading(true);
-    const { data: custs } = await supabase.from('customers').select('id, name').order('name');
-    const { data: prods } = await supabase.from('products').select('id, name, price, unit, stock_qty').order('name');
-    const { data: invs } = await supabase
-      .from('invoices')
-      .select('id, invoice_number, issue_date, total_amount, discount_amount, description, status, customer_id, customers(name)')
-      .order('issue_date', { ascending: false });
-    setCustomers(custs || []);
-    setProducts(prods || []);
-    setInvoices(invs || []);
-    setLoading(false);
-  }
-
-  function nextInvoiceNumber(list) {
-    const nums = (list || [])
-      .map((i) => parseInt(String(i.invoice_number).replace(/\D/g, ''), 10))
-      .filter((n) => !isNaN(n));
-    const max = nums.length ? Math.max(...nums) : 1000;
-    return String(max + 1);
-  }
-
-  function openNewForm() {
-    setHeader({ ...emptyHeader, invoice_number: nextInvoiceNumber(invoices) });
-    setLines([{ ...emptyLine }]);
-    setError('');
-    setFieldErrors({});
-    setShowForm(true);
-  }
-
-  function updateLine(idx, patch) {
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
-  }
-
-  function pickProduct(idx, productId) {
-    const p = products.find((x) => x.id === productId);
-    updateLine(idx, {
-      product_id: productId,
-      product_name: p ? p.name : '',
-      unit_price: p ? String(p.price) : '',
-    });
-  }
-
-  function addLine() {
-    setLines((prev) => [...prev, { ...emptyLine }]);
-  }
-
-  function removeLine(idx) {
-    setLines((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  const total = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unit_price) || 0), 0);
-  const discountValueNum = Number(header.discount_value) || 0;
-  let discountAmount =
-    header.discount_type === 'percent' ? (total * discountValueNum) / 100 : discountValueNum;
-  if (discountAmount < 0) discountAmount = 0;
-  if (discountAmount > total) discountAmount = total;
-  const finalTotal = total - discountAmount;
-
-  function validateForm() {
-    const errs = {};
-    if (!header.customer_id) errs.customer_id = 'انتخاب مشتری الزامی است.';
-    if (!header.issue_date) errs.issue_date = 'تاریخ صدور الزامی است.';
-
-    const lineErrors = {};
-    lines.forEach((l, idx) => {
-      const hasName = l.product_name.trim().length > 0;
-      const qty = Number(l.quantity);
-      const price = Number(l.unit_price);
-      if (!hasName && !l.product_id && !String(l.quantity).trim() && !String(l.unit_price).trim()) {
-        return; // ردیف کاملاً خالی، نادیده گرفته می‌شه (نه خطا)
-      }
-      if (!hasName) lineErrors[idx] = 'شرح کالا را وارد کنید.';
-      else if (!(qty > 0)) lineErrors[idx] = 'تعداد باید بزرگ‌تر از صفر باشد.';
-      else if (!(price >= 0)) lineErrors[idx] = 'قیمت واحد نمی‌تواند منفی باشد.';
-    });
-
-    const validLines = lines.filter(
-      (l) => l.product_name.trim() && Number(l.quantity) > 0 && Number(l.unit_price) >= 0
-    );
-    if (validLines.length === 0 && Object.keys(lineErrors).length === 0) {
-      errs.lines = 'حداقل یک قلم کالا با مقدار معتبر لازم است.';
-    }
-
-    return { errs, lineErrors, validLines };
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    const { errs, lineErrors, validLines } = validateForm();
-
-    if (Object.keys(errs).length > 0 || Object.keys(lineErrors).length > 0) {
-      setFieldErrors({ ...errs, lineErrors });
-      setError('لطفاً خطاهای مشخص‌شده در فرم را برطرف کنید.');
-      return;
-    }
-    setFieldErrors({});
-
-    setSubmitting(true);
-    // این عملیات به‌صورت اتمیک روی دیتابیس انجام می‌شود: ثبت فاکتور + اقلام + کسر
-    // موجودی همه با هم موفق یا همه با هم لغو می‌شوند (بدون ریسک ناهماهنگی داده).
-    const { error: rpcErr } = await supabase.rpc('create_invoice_with_items', {
-      p_customer_id: header.customer_id,
-      p_invoice_number: header.invoice_number || null,
-      p_issue_date: header.issue_date,
-      p_description: header.description,
-      p_status: header.status,
-      p_items: validLines.map((l) => ({
-        product_id: l.product_id || null,
-        product_name: l.product_name,
-        quantity: Number(l.quantity),
-        unit_price: Number(l.unit_price) || 0,
-      })),
-      p_discount_type: header.discount_type || 'amount',
-      p_discount_value: discountValueNum,
-    });
-    setSubmitting(false);
-
-    if (rpcErr) {
-      return setError(friendlyError(rpcErr, 'خطا در ثبت فاکتور. لطفاً دوباره تلاش کنید.'));
-    }
-
-    setShowForm(false);
-    load();
-  }
-
-  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
-
-  function askDelete(id) {
-    setConfirmDelete({ open: true, id, busy: false });
-  }
-
-  async function doDelete() {
-    const id = confirmDelete.id;
-    setConfirmDelete((c) => ({ ...c, busy: true }));
-    const { error: delErr } = await supabase.rpc('delete_invoice_and_restore_stock', { p_invoice_id: id });
-    if (delErr) {
-      setConfirmDelete({ open: false, id: null, busy: false });
-      setError(friendlyError(delErr, 'خطا در حذف فاکتور. لطفاً دوباره تلاش کنید.'));
-      return;
-    }
-    setConfirmDelete({ open: false, id: null, busy: false });
-    load();
-  }
-
-  async function changeStatus(id, status) {
-    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
-    await supabase.from('invoices').update({ status }).eq('id', id);
-  }
-
-  function statusColor(status) {
-    if (status === 'پرداخت‌شده') return 'text-goodText bg-good/10';
-    if (status === 'نیمه‌پرداخت') return 'text-brassDark bg-brass/10';
-    return 'text-badText bg-bad/10';
-  }
-
-  async function toggleExpand(id) {
-    if (expanded === id) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(id);
-    if (!itemsCache[id]) {
-      const { data } = await supabase.from('invoice_items').select('*').eq('invoice_id', id);
-      setItemsCache((prev) => ({ ...prev, [id]: data || [] }));
-    }
-  }
-
-  const filtered = invoices.filter((inv) => {
-    const q = search.trim();
-    if (!q) return true;
-    return (inv.customers && inv.customers.name || '').includes(q) || (inv.invoice_number || '').includes(q);
-  });
-
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  function exportCsv() {
-    const headers = ['تاریخ', 'مشتری', 'شماره فاکتور', 'مبلغ', 'وضعیت'];
-    const csvRows = filtered.map((inv) => [
-      inv.issue_date,
-      inv.customers ? inv.customers.name : '',
-      inv.invoice_number || '',
-      inv.total_amount,
-      inv.status || 'معوق',
-    ]);
-    downloadCsv('فاکتورها.csv', headers, csvRows);
-  }
-
-  return (
-    <Layout title="فاکتورها">
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="جست‌وجو بر اساس مشتری یا شماره فاکتور…"
-          className="focus-ring rounded-md border border-line px-3 py-2 text-sm w-full sm:w-64"
-        />
-        <button
-          onClick={exportCsv}
-          className="focus-ring bg-surface border border-line text-ink text-sm rounded-md px-4 py-2 font-semibold"
-        >
-          خروجی CSV
-        </button>
-        <button
-          onClick={() => (showForm ? setShowForm(false) : openNewForm())}
-          className="focus-ring bg-brass hover:bg-brassDark text-white text-sm rounded-md px-4 py-2 font-semibold"
-        >
-          {showForm ? 'بستن فرم' : '+ فاکتور جدید'}
-        </button>
-      </div>
-
-      {!showForm && error && (
-        <div role="alert" aria-live="assertive" className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>
-      )}
-
-      {showForm && (
-        <form onSubmit={handleSubmit} noValidate className="bg-surface border border-line rounded-xl p-5 mb-6">
-          {error && (
-            <div role="alert" aria-live="assertive" className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-3">{error}</div>
-          )}
-          <div className="grid sm:grid-cols-4 gap-3 mb-4">
-            <div>
-              <label htmlFor="inv-customer" className="block text-xs text-ink/60 mb-1">مشتری *</label>
-              <select
-                id="inv-customer"
-                value={header.customer_id}
-                onChange={(e) => {
-                  setHeader({ ...header, customer_id: e.target.value });
-                  if (fieldErrors.customer_id) setFieldErrors((f) => ({ ...f, customer_id: undefined }));
-                }}
-                required
-                aria-required="true"
-                aria-invalid={!!fieldErrors.customer_id}
-                aria-describedby={fieldErrors.customer_id ? 'inv-customer-err' : undefined}
-                className={`focus-ring w-full rounded-md border px-3 py-2 text-sm bg-surface ${
-                  fieldErrors.customer_id ? 'border-bad' : 'border-line'
-                }`}
-              >
-                <option value="">انتخاب کنید…</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              {fieldErrors.customer_id && (
-                <p id="inv-customer-err" className="text-badText text-[11px] mt-1">{fieldErrors.customer_id}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="inv-number" className="block text-xs text-ink/60 mb-1">شماره فاکتور (خودکار، قابل ویرایش)</label>
-              <input
-                id="inv-number"
-                value={header.invoice_number}
-                onChange={(e) => setHeader({ ...header, invoice_number: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="inv-date" className="block text-xs text-ink/60 mb-1">تاریخ صدور *</label>
-              <JalaliDatePicker
-                id="inv-date"
-                value={header.issue_date}
-                onChange={(v) => {
-                  setHeader({ ...header, issue_date: v });
-                  if (fieldErrors.issue_date) setFieldErrors((f) => ({ ...f, issue_date: undefined }));
-                }}
-                aria-invalid={!!fieldErrors.issue_date}
-                aria-describedby={fieldErrors.issue_date ? 'inv-date-err' : undefined}
-                className={`focus-ring w-full rounded-md border px-3 py-2 text-sm text-right bg-surface ${
-                  fieldErrors.issue_date ? 'border-bad' : 'border-line'
-                }`}
-              />
-              {fieldErrors.issue_date && (
-                <p id="inv-date-err" className="text-badText text-[11px] mt-1">{fieldErrors.issue_date}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="inv-status" className="block text-xs text-ink/60 mb-1">وضعیت پرداخت</label>
-              <select
-                id="inv-status"
-                value={header.status}
-                onChange={(e) => setHeader({ ...header, status: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
-              >
-                <option value="معوق">معوق</option>
-                <option value="نیمه‌پرداخت">نیمه‌پرداخت</option>
-                <option value="پرداخت‌شده">پرداخت‌شده</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-2 text-xs text-ink/60">اقلام فاکتور *</div>
-          {fieldErrors.lines && (
-            <p role="alert" className="text-badText text-[11px] mb-2">{fieldErrors.lines}</p>
-          )}
-          <div className="space-y-2 mb-3">
-            {lines.map((l, idx) => {
-              const subtotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-              const lineErr = fieldErrors.lineErrors && fieldErrors.lineErrors[idx];
-              function clearLineErr() {
-                if (lineErr) {
-                  setFieldErrors((f) => {
-                    const next = { ...(f.lineErrors || {}) };
-                    delete next[idx];
-                    return { ...f, lineErrors: next };
-                  });
-                }
-              }
-              return (
-                <div
-                  key={idx}
-                  className={`grid grid-cols-12 gap-2 items-center rounded-md p-2 ${
-                    lineErr ? 'bg-bad/5 border border-bad/40' : 'bg-paper'
-                  }`}
-                >
-                  <select
-                    value={l.product_id}
-                    onChange={(e) => {
-                      pickProduct(idx, e.target.value);
-                      clearLineErr();
-                    }}
-                    aria-invalid={!!lineErr}
-                    className="focus-ring col-span-4 rounded-md border border-line px-2 py-2 text-xs bg-surface"
-                  >
-                    <option value="">کالا را انتخاب کنید (یا دستی وارد کنید)…</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} (موجودی: {p.stock_qty})</option>
-                    ))}
-                  </select>
-                  <input
-                    value={l.product_name}
-                    onChange={(e) => {
-                      updateLine(idx, { product_name: e.target.value });
-                      clearLineErr();
-                    }}
-                    placeholder="شرح قلم"
-                    aria-invalid={!!lineErr}
-                    className="focus-ring col-span-3 rounded-md border border-line px-2 py-2 text-xs"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={l.quantity}
-                    onChange={(e) => {
-                      updateLine(idx, { quantity: e.target.value });
-                      clearLineErr();
-                    }}
-                    placeholder="تعداد"
-                    aria-invalid={!!lineErr}
-                    className="focus-ring col-span-2 rounded-md border border-line px-2 py-2 text-xs"
-                  />
-                  <MoneyInput
-                    value={l.unit_price}
-                    onChange={(v) => {
-                      updateLine(idx, { unit_price: v });
-                      clearLineErr();
-                    }}
-                    className="focus-ring col-span-2 rounded-md border border-line px-2 py-2 text-xs"
-                    placeholder="قیمت واحد"
-                  />
-                  <div className="col-span-1 flex items-center justify-between">
-                    <button type="button" onClick={() => removeLine(idx)} className="focus-ring text-badText text-xs">حذف</button>
-                  </div>
-                  {lineErr && (
-                    <div className="col-span-12 text-badText text-[11px]">{lineErr}</div>
-                  )}
-                  <div className="col-span-12 text-left text-xs text-ink/50">{formatToman(subtotal)}</div>
-                </div>
-              );
-            })}
-          </div>
-          <button type="button" onClick={addLine} className="focus-ring text-xs text-brass hover:underline mb-4">
-            + افزودن قلم دیگر
-          </button>
-
-          <div className="grid sm:grid-cols-3 gap-3 mb-4 items-end">
-            <div>
-              <label className="block text-xs text-ink/60 mb-1">نوع تخفیف</label>
-              <select
-                value={header.discount_type}
-                onChange={(e) => setHeader({ ...header, discount_type: e.target.value })}
-                className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"
-              >
-                <option value="amount">مبلغ ثابت (تومان)</option>
-                <option value="percent">درصد (%)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-ink/60 mb-1">
-                میزان تخفیف {header.discount_type === 'percent' ? '(٪)' : '(تومان)'}
-              </label>
-              {header.discount_type === 'percent' ? (
-                <input
-                  type="number"
-                  value={header.discount_value}
-                  onChange={(e) => setHeader({ ...header, discount_value: e.target.value })}
-                  placeholder="0"
-                  className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
-                />
-              ) : (
-                <MoneyInput
-                  value={header.discount_value}
-                  onChange={(v) => setHeader({ ...header, discount_value: v })}
-                  className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"
-                  placeholder="0"
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="bg-ink text-paper rounded-lg px-4 py-3 mb-4 space-y-1.5">
-            <div className="flex justify-between items-center text-sm text-paper/70">
-              <span>جمع اقلام</span>
-              <span>{formatToman(total)}</span>
-            </div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between items-center text-sm text-brass">
-                <span>تخفیف</span>
-                <span>- {formatToman(discountAmount)}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center pt-1.5 border-t border-white/10">
-              <span className="text-sm">مبلغ نهایی</span>
-              <span className="font-bold text-lg">{formatToman(finalTotal)}</span>
-            </div>
-          </div>
-
-          <button disabled={submitting} className="focus-ring bg-ink text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-60">{submitting ? 'در حال ثبت…' : 'ثبت فاکتور'}</button>
-        </form>
-      )}
-
-      <div className="bg-surface border border-line rounded-xl overflow-x-auto">
-        <table className="ledger">
-          <thead>
-            <tr>
-              <th>تاریخ</th>
-              <th>مشتری</th>
-              <th>شماره فاکتور</th>
-              <th>مبلغ</th>
-              <th>وضعیت</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <TableSkeleton columns={6} />
-            ) : pageRows.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-ink/40 py-6">فاکتوری یافت نشد.</td></tr>
-            ) : (
-              pageRows.map((inv) => (
-                <React.Fragment key={inv.id}>
-                  <tr>
-                    <td>{formatJalaliShort(inv.issue_date)}</td>
-                    <td className="font-medium">{inv.customers ? inv.customers.name : '—'}</td>
-                    <td>{inv.invoice_number || '—'}</td>
-                    <td>
-                      {formatToman(inv.total_amount)}
-                      {inv.discount_amount > 0 && (
-                        <span className="block text-[10px] text-brass">با تخفیف</span>
-                      )}
-                    </td>
-                    <td>
-                      <select
-                        value={inv.status || 'معوق'}
-                        onChange={(e) => changeStatus(inv.id, e.target.value)}
-                        className={`focus-ring text-xs rounded-md px-2 py-1 border-0 font-semibold ${statusColor(inv.status)}`}
-                      >
-                        <option value="معوق">معوق</option>
-                        <option value="نیمه‌پرداخت">نیمه‌پرداخت</option>
-                        <option value="پرداخت‌شده">پرداخت‌شده</option>
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <button onClick={() => toggleExpand(inv.id)} className="focus-ring text-xs text-ink/60 hover:underline ml-3">
-                        {expanded === inv.id ? 'بستن' : 'اقلام'}
-                      </button>
-                      <Link
-                        href={'/invoice-print?id=' + inv.id}
-                        target="_blank"
-                        className="focus-ring text-xs text-brass hover:underline ml-3"
-                      >
-                        چاپ
-                      </Link>
-                      <button onClick={() => askDelete(inv.id)} className="focus-ring text-xs text-badText hover:underline">حذف</button>
-                    </td>
-                  </tr>
-                  {expanded === inv.id && (
-                    <tr>
-                      <td colSpan={6} className="bg-paper">
-                        {!itemsCache[inv.id] ? (
-                          <p className="text-xs text-ink/40 py-2">در حال بارگذاری…</p>
-                        ) : itemsCache[inv.id].length === 0 ? (
-                          <p className="text-xs text-ink/40 py-2">قلمی ثبت نشده (فاکتور قدیمی).</p>
-                        ) : (
-                          <ul className="text-xs divide-y divide-line">
-                            {itemsCache[inv.id].map((it) => (
-                              <li key={it.id} className="flex justify-between py-1.5">
-                                <span>{it.product_name} × {it.quantity}</span>
-                                <span>{formatToman(it.quantity * it.unit_price)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))
-            )}
-          </tbody>
-        </table>
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE} />
-      </div>
-
-      <ConfirmDialog
-        open={confirmDelete.open}
-        title="حذف فاکتور"
-        description="این فاکتور حذف شود؟ موجودی کالاهای آن به‌صورت خودکار به انبار برمی‌گردد. این عملیات قابل بازگشت نیست."
-        confirmLabel="حذف فاکتور"
-        busy={confirmDelete.busy}
-        onConfirm={doDelete}
-        onCancel={() => setConfirmDelete({ open: false, id: null, busy: false })}
-      />
-    </Layout>
-  );
+ return <Layout title="فاکتورهای حرفه‌ای">
+  <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+   <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="جست‌وجو بر اساس مشتری یا شماره فاکتور…" className="focus-ring rounded-md border border-line px-3 py-2 text-sm w-full sm:w-64"/>
+   <div className="flex gap-2"><button onClick={csv} className="focus-ring bg-surface border border-line text-sm rounded-md px-4 py-2">خروجی CSV</button><button onClick={()=>showForm?setShowForm(false):openNew()} className="focus-ring bg-brass text-white text-sm rounded-md px-4 py-2 font-semibold">{showForm?'بستن فرم':'+ فاکتور جدید'}</button></div>
+  </div>
+  {error&&<div role="alert" className="text-badText text-xs bg-bad/10 rounded-md px-3 py-2 mb-4">{error}</div>}
+  {showForm&&<form onSubmit={submit} className="bg-surface border border-line rounded-xl p-5 mb-6">
+   <div className="flex justify-between mb-4"><b>{editingId?'ویرایش پیش‌نویس':'فاکتور جدید'}</b>{settings.tax_enabled&&<span className="text-xs text-goodText">مالیات فعال: {taxRate}%</span>}</div>
+   <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+    <div><label className="block text-xs text-ink/60 mb-1">مشتری *</label><select value={header.customer_id} onChange={e=>setHeader({...header,customer_id:e.target.value})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"><option value="">انتخاب کنید…</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+    <div><label className="block text-xs text-ink/60 mb-1">شماره فاکتور</label><input value={header.invoice_number} onChange={e=>setHeader({...header,invoice_number:e.target.value})} placeholder="خودکار" className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm"/></div>
+    <div><label className="block text-xs text-ink/60 mb-1">تاریخ صدور *</label><JalaliDatePicker value={header.issue_date} onChange={v=>setHeader({...header,issue_date:v})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"/></div>
+    <div><label className="block text-xs text-ink/60 mb-1">تاریخ سررسید *</label><JalaliDatePicker value={header.due_date} onChange={v=>setHeader({...header,due_date:v})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"/></div>
+    {!editingId&&<div><label className="block text-xs text-ink/60 mb-1">وضعیت اولیه</label><select value={header.status} onChange={e=>setHeader({...header,status:e.target.value})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"><option value="DRAFT">پیش‌نویس</option><option value="POSTED">ثبت‌شده</option></select></div>}
+   </div>
+   <div className="text-xs text-ink/60 mb-2">اقلام فاکتور *</div>
+   <div className="space-y-2 mb-3">{lines.map((l,i)=><div key={i} className="grid grid-cols-12 gap-2 items-center rounded-md p-2 bg-paper">
+    <select value={l.product_id} onChange={e=>pickProduct(i,e.target.value)} className="focus-ring col-span-12 sm:col-span-4 rounded-md border border-line px-2 py-2 text-xs bg-surface"><option value="">کالا را انتخاب کنید…</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} — موجودی {p.stock_qty}</option>)}</select>
+    <input value={l.product_name} onChange={e=>updateLine(i,{product_name:e.target.value})} placeholder="شرح قلم" className="focus-ring col-span-7 sm:col-span-3 rounded-md border border-line px-2 py-2 text-xs"/>
+    <input type="number" min="0" step="any" value={l.quantity} onChange={e=>updateLine(i,{quantity:e.target.value})} className="focus-ring col-span-5 sm:col-span-2 rounded-md border border-line px-2 py-2 text-xs" placeholder="تعداد"/>
+    <MoneyInput value={l.unit_price} onChange={v=>updateLine(i,{unit_price:v})} className="focus-ring col-span-7 sm:col-span-2 rounded-md border border-line px-2 py-2 text-xs" placeholder="قیمت واحد"/>
+    <button type="button" onClick={()=>removeLine(i)} className="focus-ring col-span-5 sm:col-span-1 text-badText text-xs">حذف</button>
+    <div className="col-span-12 text-left text-xs text-ink/50">{money(Number(l.quantity)*Number(l.unit_price))}</div>
+   </div>)}</div>
+   <button type="button" onClick={addLine} className="focus-ring text-xs text-brass mb-4">+ افزودن قلم</button>
+   <div className="grid sm:grid-cols-3 gap-3 mb-4">
+    <div><label className="block text-xs text-ink/60 mb-1">نوع تخفیف</label><select value={header.discount_type} onChange={e=>setHeader({...header,discount_type:e.target.value})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm bg-surface"><option value="amount">مبلغ ثابت</option><option value="percent">درصد</option></select></div>
+    <div><label className="block text-xs text-ink/60 mb-1">میزان تخفیف</label><MoneyInput value={header.discount_value} onChange={v=>setHeader({...header,discount_value:v})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="0"/></div>
+    <div><label className="block text-xs text-ink/60 mb-1">هزینه ارسال</label><MoneyInput value={header.shipping_amount} onChange={v=>setHeader({...header,shipping_amount:v})} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm" placeholder="0"/></div>
+   </div>
+   <div className="bg-ink text-paper rounded-lg px-4 py-3 mb-4 space-y-1 text-sm">
+    <div className="flex justify-between"><span>جمع اقلام</span><span>{money(subtotal)}</span></div>
+    <div className="flex justify-between"><span>تخفیف</span><span>- {money(discount)}</span></div>
+    {settings.tax_enabled&&<div className="flex justify-between"><span>مالیات ({taxRate}%)</span><span>{money(tax)}</span></div>}
+    <div className="flex justify-between"><span>ارسال</span><span>{money(shipping)}</span></div>
+    <div className="flex justify-between border-t border-white/10 pt-2 font-bold"><span>جمع کل</span><span>{money(total)}</span></div>
+   </div>
+   <label className="block text-xs text-ink/60 mb-1">توضیحات</label><textarea value={header.description} onChange={e=>setHeader({...header,description:e.target.value})} rows={2} className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm mb-4"/>
+   <button disabled={submitting} className="focus-ring bg-ink text-white text-sm rounded-md px-4 py-2 font-semibold disabled:opacity-60">{submitting?'در حال ثبت…':editingId?'ذخیره پیش‌نویس':header.status==='POSTED'?'ثبت فاکتور و کسر موجودی':'ذخیره پیش‌نویس'}</button>
+  </form>}
+  <div className="bg-surface border border-line rounded-xl overflow-x-auto"><table className="ledger"><thead><tr><th>صدور</th><th>سررسید</th><th>مشتری</th><th>شماره</th><th>جمع کل</th><th>وضعیت</th><th></th></tr></thead>
+  <tbody>{loading?<TableSkeleton columns={7}/>:rows.length===0?<tr><td colSpan={7} className="text-center text-ink/40 py-8">فاکتوری یافت نشد.</td></tr>:rows.map(inv=><React.Fragment key={inv.id}>
+   <tr><td>{formatJalaliShort(inv.issue_date)}</td><td>{formatJalaliShort(inv.due_date)}</td><td className="font-medium">{inv.customers?.name||'—'}</td><td>{inv.invoice_number||'—'}</td><td>{money(inv.total_amount)}</td><td><span className="text-xs rounded-full px-2 py-1 bg-ink/5">{STATUS_LABELS[inv.status]||inv.status}</span></td>
+   <td className="whitespace-nowrap"><button onClick={()=>toggle(inv.id)} className="focus-ring text-xs text-brass ml-2">اقلام</button>{inv.status==='DRAFT'&&<button onClick={()=>openEdit(inv)} className="focus-ring text-xs text-brass ml-2">ویرایش</button>}{inv.status==='DRAFT'&&<button onClick={()=>ask(inv.id,'post')} className="focus-ring text-xs text-goodText ml-2">ثبت نهایی</button>}{inv.status==='POSTED'&&<button onClick={()=>ask(inv.id,'void')} className="focus-ring text-xs text-badText ml-2">ابطال</button>}{inv.status==='DRAFT'&&<button onClick={()=>ask(inv.id,'delete')} className="focus-ring text-xs text-badText ml-2">حذف</button>}<Link href={'/invoice-print?id='+inv.id} target="_blank" className="focus-ring text-xs text-brass">چاپ/PDF</Link></td></tr>
+   {expanded===inv.id&&<tr><td colSpan={7} className="bg-paper">{!itemsCache[inv.id]?<span className="text-xs text-ink/40">در حال بارگذاری…</span>:<div className="py-2 space-y-1">{itemsCache[inv.id].map(it=><div key={it.id} className="flex justify-between text-xs"><span>{it.product_name} × {it.quantity}</span><span>{money(Number(it.quantity)*Number(it.unit_price))}</span></div>)}</div>}<div className="text-xs text-ink/60 mt-2">تخفیف: {money(inv.discount_amount)} · مالیات: {money(inv.tax_amount)} · ارسال: {money(inv.shipping_amount)}</div></td></tr>}
+  </React.Fragment>)}</tbody></table><Pagination page={page} totalPages={totalPages} onChange={setPage} totalCount={filtered.length} pageSize={PAGE_SIZE}/></div>
+  <ConfirmDialog open={confirm.open} title={confirm.mode==='post'?'ثبت نهایی فاکتور':confirm.mode==='void'?'ابطال فاکتور':'حذف پیش‌نویس'} description={confirm.mode==='post'?'فاکتور ثبت می‌شود و موجودی به‌صورت اتمیک کاهش می‌یابد.':confirm.mode==='void'?'فاکتور باطل و اثر موجودی آن به‌صورت اتمیک برگشت می‌خورد.':'فقط پیش‌نویس حذف می‌شود؛ فاکتور ثبت‌شده قابل حذف نیست.'} confirmLabel={confirm.mode==='post'?'ثبت نهایی':confirm.mode==='void'?'ابطال':'حذف'} busy={confirm.busy} onConfirm={run} onCancel={()=>setConfirm({open:false,id:null,mode:null,busy:false})}/>
+ </Layout>;
 }
