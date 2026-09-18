@@ -1,0 +1,9 @@
+import { useState } from 'react';
+import Link from 'next/link';
+import { supabase } from '../lib/supabaseClient';
+
+export default function ForgotPassword(){
+ const [email,setEmail]=useState('');const [error,setError]=useState('');const [message,setMessage]=useState('');const [loading,setLoading]=useState(false);
+ async function submit(e){e.preventDefault();setError('');setMessage('');setLoading(true);const origin=window.location.origin;const base=process.env.NEXT_PUBLIC_BASE_PATH||'';const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:origin+base+'/reset-password'});setLoading(false);if(error){setError('ارسال ایمیل بازیابی انجام نشد. دوباره تلاش کنید.');return;}setMessage('اگر این ایمیل در سیستم ثبت شده باشد، لینک بازیابی ارسال می‌شود.');}
+ return <div className="min-h-screen flex items-center justify-center bg-paper px-4"><form onSubmit={submit} className="w-full max-w-sm bg-surface rounded-xl border border-line p-8 shadow-sm"><div className="text-center mb-6"><div className="text-lg font-bold">بازیابی رمز عبور</div><div className="text-xs text-ink/50 mt-1">ایمیل حساب را وارد کنید</div></div>{error&&<div className="text-badText text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>}{message&&<div className="text-goodText text-xs bg-good/10 border border-good/30 rounded-md px-3 py-2 mb-4">{message}</div>}<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm mb-6" placeholder="you@example.com"/><button disabled={loading} className="focus-ring w-full bg-brass text-white rounded-md py-2 text-sm font-semibold disabled:opacity-60">{loading?'در حال ارسال…':'ارسال لینک بازیابی'}</button><div className="text-xs text-center mt-4"><Link href="/login" className="text-brass hover:underline">بازگشت به ورود</Link></div></form></div>
+}
