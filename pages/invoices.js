@@ -70,7 +70,7 @@ export default function Invoices(){
   const valid=lines.filter(x=>x.product_name.trim()&&Number(x.quantity)>0&&Number(x.unit_price)>=0);
   if(!valid.length)return setError('حداقل یک قلم معتبر لازم است.');
   setSubmitting(true);
-  const args={p_customer_id:header.customer_id,p_invoice_number:header.invoice_number||null,p_issue_date:header.issue_date,p_due_date:header.due_date,p_description:header.description||null,p_items:valid.map(x=>({product_id:x.product_id||null,product_name:x.product_name.trim(),quantity:Number(x.quantity),unit_price:Number(x.unit_price)||0})),p_discount_type:header.discount_type,p_discount_value:discount,p_tax_rate:taxRate,p_shipping_amount:shipping};
+  const args={p_customer_id:header.customer_id,p_invoice_number:header.invoice_number||null,p_issue_date:header.issue_date,p_due_date:header.due_date,p_description:header.description||null,p_items:valid.map(x=>({product_id:x.product_id||null,product_name:x.product_name.trim(),quantity:Number(x.quantity),unit_price:Number(x.unit_price)||0})),p_discount_type:header.discount_type,p_discount_value:discountValue,p_tax_rate:taxRate,p_shipping_amount:shipping};
   const {error:e}=editingId?await supabase.rpc('update_draft_invoice_with_items',{...args,p_invoice_id:editingId}):await supabase.rpc('create_invoice_with_items',{...args,p_status:header.status});
   setSubmitting(false);if(e)return setError(friendlyError(e,'خطا در ذخیره فاکتور.'));
   setShowForm(false);setEditingId(null);await load();
