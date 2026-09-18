@@ -1,0 +1,10 @@
+import { useEffect,useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabaseClient';
+
+export default function ResetPassword(){
+ const router=useRouter();const [ready,setReady]=useState(false);const [password,setPassword]=useState('');const [error,setError]=useState('');const [message,setMessage]=useState('');const [saving,setSaving]=useState(false);
+ useEffect(()=>{let mounted=true;const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{if(mounted&&event==='PASSWORD_RECOVERY'&&session)setReady(true);});supabase.auth.getSession().then(({data})=>{if(mounted&&data.session)setReady(true);});return()=>{mounted=false;listener.subscription.unsubscribe();};},[]);
+ async function submit(e){e.preventDefault();setError('');if(password.length<8){setError('رمز عبور باید حداقل ۸ کاراکتر باشد.');return;}setSaving(true);const {error}=await supabase.auth.updateUser({password});setSaving(false);if(error){setError('تغییر رمز عبور انجام نشد. لینک بازیابی ممکن است منقضی شده باشد.');return;}setMessage('رمز عبور با موفقیت تغییر کرد.');setTimeout(()=>router.replace('/'),800);}
+ return <div className="min-h-screen flex items-center justify-center bg-paper px-4"><form onSubmit={submit} className="w-full max-w-sm bg-surface rounded-xl border border-line p-8 shadow-sm"><div className="text-lg font-bold mb-2">رمز عبور جدید</div>{!ready&&!message?<div className="text-xs text-ink/60">در حال بررسی لینک بازیابی…</div>:<>{error&&<div className="text-badText text-xs bg-bad/10 border border-bad/30 rounded-md px-3 py-2 mb-4">{error}</div>}{message&&<div className="text-goodText text-xs bg-good/10 border border-good/30 rounded-md px-3 py-2 mb-4">{message}</div>} {!message&&<><input type="password" required minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" className="focus-ring w-full rounded-md border border-line px-3 py-2 text-sm mb-4" placeholder="حداقل ۸ کاراکتر"/><button disabled={saving} className="focus-ring w-full bg-brass text-white rounded-md py-2 text-sm font-semibold">{saving?'در حال ذخیره…':'تغییر رمز'}</button></>}</>}</form></div>
+}
