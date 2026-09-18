@@ -185,3 +185,14 @@ Stage 4 عملیات حساس موجودی را از طریق RPCهای تراک
 - Migrationهای Stage 6:
   - supabase-migration-12-payments-receivables.sql
   - supabase-migration-13-payments-security.sql
+
+
+## Stage 7 — Expenses & Financial Core
+- هسته دوطرفه حسابداری اضافه شد: chart_of_accounts، journal_entries و journal_lines با Debit/Credit.
+- مانده حساب‌ها و دفتر کل از Database View محاسبه می‌شوند؛ Frontend منبع محاسبات مالی نیست.
+- ثبت هزینه از طریق RPC اتمیک post_expense انجام می‌شود و همزمان Expense و Journal Entry/Lines ساخته می‌شوند.
+- ثبت هزینه‌های ثبت‌شده قابل حذف/ویرایش مستقیم نیست.
+- RPCهای journalization برای Invoice و Payment اضافه شدند و از ثبت تکراری جلوگیری می‌کنند.
+- حساب‌های پایه: 1100 دارایی نقد/بانک، 1200 دریافتنی، 2100 پرداختنی، 4100 فروش، 5100 هزینه عمومی.
+- customer_balances و supplier_balances برای Reversal-aware محاسبات اصلاح شدند.
+- Migration: supabase-migration-14-financial-core.sql
