@@ -35,24 +35,24 @@
 6. **[جدید] قبل از push، از چک‌لیست استقرار پیروی کن** (بررسی کد → SQL در صورت نیاز → آپلود/ترمینال → چک تب Actions → تست دستی روی سایت زنده).
 
 ## ساختار پایگاه‌داده (جداول موجود)
-همه جداول دارای Row Level Security (RLS) هستن؛ فقط کاربر لاگین‌کرده (`authenticated`) دسترسی داره. **[نکته مهم: این مدل تک‌کاربره/تک‌سازمانیه — همه‌ی کاربران لاگین‌کرده به همه‌ی داده دسترسی دارن، بدون تفکیک سازمان. برای گسترش، بخش «مسائل شناخته‌شده» رو ببین.]**
+
+از Stage 1 تا Stage 4، داده‌ها بر اساس `organization_id` تفکیک می‌شوند و RLS فعال است.
 
 | جدول | توضیح | فیلدهای کلیدی |
 |---|---|---|
-| `customers` | مشتریان | name, phone, address |
-| `products` | کاتالوگ کالا | name, unit, price, stock_qty |
-| `stock_movements` | تاریخچه ورود/خروج انبار | product_id, change_qty, reason |
-| `invoices` | سرفصل فاکتور | customer_id, invoice_number, issue_date, total_amount, status, description, discount_type, discount_value, discount_amount |
-| `invoice_items` | اقلام فاکتور | invoice_id, product_id, product_name, quantity, unit_price |
-| `payments` | پرداخت‌های مشتری | customer_id, amount, payment_date, note |
-| `business_settings` | اطلاعات کسب‌وکار (تک‌ردیفه، id='default') | name, phone, address, logo_url |
+| `customers` | مشتریان | name, phone, mobile, address, customer_code |
+| `suppliers` | تأمین‌کنندگان | name, phone, mobile, address, supplier_code |
+| `products` | کاتالوگ کالا | name, sku, barcode, category, unit, purchase_price, sale_price, min_stock, is_active |
+| `warehouses` | انبارها | name, code, is_active |
+| `warehouse_stock` | موجودی واقعی هر کالا در هر انبار | warehouse_id, product_id, quantity |
+| `stock_movements` | دفتر گردش موجودی | warehouse_id, product_id, change_qty, movement_type, reason, transfer_id |
+| `invoices` | سرفصل فاکتور | customer_id, invoice_number, issue_date, total_amount, status |
+| `invoice_items` | اقلام فاکتور | invoice_id, product_id, quantity, unit_price |
+| `payments` | پرداخت‌ها | customer_id, amount, payment_date |
+| `business_settings` | تنظیمات کسب‌وکار | name, phone, address, logo_url |
 | `expenses` | هزینه‌ها | category, amount, expense_date, description |
 
-**View محاسباتی:** `customer_balances` — مانده حساب هر مشتری (مجموع فاکتور منهای مجموع پرداخت) را خودکار محاسبه می‌کند.
-
-**ایندکس‌ها:** `idx_invoices_customer_id`, `idx_invoices_issue_date` — روی جدول `invoices`، برای سریع‌تر شدن فیلتر/مرتب‌سازی با رشد داده.
-
-**Storage bucket:** `logos` — برای نگهداری لوگوی کسب‌وکار (عمومی برای خواندن، محدود به کاربر لاگین‌کرده برای نوشتن).
+**منبع حقیقت موجودی:** `warehouse_stock.quantity` در دیتابیس است؛ `products.stock_qty` فقط aggregate سازگار با کد قدیمی است و با trigger به‌روزرسانی می‌شود. کلاینت اجازه‌ی DML مستقیم روی `warehouse_stock` و `stock_movements` ندارد.
 
 ### توابع دیتابیسی (RPC) — مهم
 سه عملیات به‌صورت **اتمیک** (تراکنشی) سمت دیتابیس انجام می‌شن، نه چندمرحله‌ای سمت فرانت‌اند:
@@ -64,8 +64,15 @@
 - **`get_dashboard_stats()`**
   همه‌ی آمار داشبورد (تعداد مشتری، مطالبات باز، فروش ماه، نمودار ۶ ماهه، بدهکارترین مشتریان، فاکتورهای معوق قدیمی، آخرین فاکتورها) رو در یک درخواست و به‌صورت تجمیع‌شده سمت SQL برمی‌گردونه — به‌جای اینکه کل جدول `invoices`/`customer_balances` به مرورگر فرستاده بشه و محاسبات سمت جاوااسکریپت انجام بشه. `pages/index.js` الان فقط همین یک RPC رو صدا می‌زنه. **[جدید] خروجی `overdue_invoices` و `recent_invoices` الان `id` فاکتور رو هم داره (و `recent_invoices` نام مشتری رو هم داره)، چون داشبورد الان ردیف‌ها رو مستقیم به `/invoice-print?id=...` لینک می‌کنه.**
 
-فایل‌های migration به ترتیب اجرا شدن (همه در ریشه‌ی پروژه موجودن، شماره‌گذاری‌شده):
-`supabase-schema.sql` (پایه) → `migration-2-inventory` → `migration-3-invoice-items` → `migration-4-invoice-status` → `migration-5-business-settings` → `migration-6-expenses` → `migration-7-invoice-rpc` → `migration-8-delete-invoice-rpc` → `migration-9-invoice-discount` → `migration-10-dashboard-stats` (تابع `get_dashboard_stats` + دو ایندکس بالا) → **[جدید] `migration-11-dashboard-links`** (بازنویسی `get_dashboard_stats` فقط برای افزودن `id`/نام مشتری به دو تا از لیست‌ها؛ امضای تابع عوض نشده، نیازی به `drop function` نبود).
+فایل‌های migration مرحله‌ای:
+- `supabase/migrations/20260918141855_stage_1_multi_tenant_security.sql`
+- `supabase/migrations/20260918142753_stage_2_authentication.sql` (در دیتابیس اعمال شده)
+- `supabase/migrations/20260918143605_stage_3_customers_suppliers.sql`
+- `supabase/migrations/20260918144524_stage_4_products_inventory_core.sql`
+- `supabase/migrations/20260918144551_stage_4_inventory_transaction_safe_rpcs.sql`
+- `supabase/migrations/20260918144620_stage_4_invoice_discount_compatibility.sql`
+
+Stage 4 عملیات حساس موجودی را از طریق RPCهای تراکنشی انجام می‌دهد: ورود، خروج، اصلاح، انتقال بین انبارها و اتصال فروش/حذف فاکتور به موجودی. برای جلوگیری از Race Condition، ردیف‌های `warehouse_stock` با `FOR UPDATE` قفل می‌شوند و در انتقال‌ها ترتیب قفل ثابت است.
 
 ⚠️ اگه در آینده امضای یه تابع RPC عوض بشه، حتماً باید `drop function if exists ...(امضای دقیق قبلی)` قبل از `create or replace function` بیاد، وگرنه Supabase دو تابع هم‌نام نگه می‌داره و خطای ابهام می‌ده.
 
@@ -78,8 +85,8 @@
   - نشانگر روند فروش این ماه نسبت به ماه قبل (▲/▼ + درصد) کنار کارت «فروش این ماه».
   - در حالت خطا، کارت‌های آماری «—» نشون می‌دن (نه «۰») تا با صفر واقعی اشتباه نشن.
 - `/customers` مشتریان (CRUD، جست‌وجو، خروجی CSV، وضعیت حساب، صفحه‌بندی، Skeleton loading). **[جدید]** پشتیبانی از `?new=1` (باز کردن خودکار فرم افزودن) و `?search=...` (پرشدن خودکار جست‌وجو) برای لینک‌های داشبورد.
-- `/products` کالاها (CRUD، قیمت، موجودی، صفحه‌بندی، Skeleton loading)
-- `/inventory` انبار (ثبت ورود/خروج، تاریخچه، Skeleton loading)
+- `/products` کالاها (CRUD حرفه‌ای: SKU، بارکد، دسته‌بندی، واحد، قیمت خرید/فروش، حداقل موجودی، وضعیت فعال، موجودی تجمیعی)
+- `/inventory` انبار (مدیریت چند انبار، موجودی هر انبار، ورود/خروج/اصلاح، انتقال اتمیک، تاریخچه گردش)
 - `/invoices` فاکتورها (چند قلم کالا، شماره‌گذاری خودکار، تخفیف مبلغ‌ثابت/درصدی، وضعیت پرداخت، ثبت/حذف اتمیک از طریق RPC، جست‌وجو، CSV، صفحه‌بندی، Skeleton loading). **[جدید]** پشتیبانی از `?new=1` و `?search=...` برای لینک‌های داشبورد.
 - `/invoice-print` چاپ فاکتور (چاپ مرورگر، دانلود PDF واقعی، ذخیره عکس، پیامک، واتساپ، نمایش تخفیف) — مستقل از منوی اصلی
 - `/payments` پرداخت‌ها (صفحه‌بندی، Skeleton loading)
