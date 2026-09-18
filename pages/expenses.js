@@ -76,14 +76,9 @@ export default function Expenses() {
   }
 
   function editRow(r) {
-    setForm({
-      id: r.id,
-      category: r.category,
-      amount: r.amount,
-      expense_date: r.expense_date,
-      description: r.description || '',
-    });
+    setForm({ id: null, category: r.category, amount: r.amount, expense_date: r.expense_date, description: r.description || '' });
     setShowForm(true);
+    setError('هزینه‌های ثبت‌شده حسابداری قابل ویرایش نیستند؛ برای اصلاح باید در مرحله Reversal اصلاح شوند.');
   }
 
   const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, busy: false });
@@ -93,15 +88,8 @@ export default function Expenses() {
   }
 
   async function doDelete() {
-    const id = confirmDelete.id;
-    setConfirmDelete((c) => ({ ...c, busy: true }));
-    const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (error) {
-      setConfirmDelete({ open: false, id: null, busy: false });
-      return setError(friendlyError(error, 'خطا در حذف هزینه. لطفاً دوباره تلاش کنید.'));
-    }
     setConfirmDelete({ open: false, id: null, busy: false });
-    load();
+    setError('حذف مستقیم هزینه ثبت‌شده مجاز نیست. برای اصلاح از Reversal استفاده می‌شود.');
   }
 
   const filtered = rows.filter((r) => {
