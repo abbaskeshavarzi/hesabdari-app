@@ -166,7 +166,7 @@ begin
   ) on commit drop;
 
   -- Parent/master data first.
-  foreach v_table in array[
+  foreach v_table in ARRAY ARRAY[
     'business_settings','customers','suppliers','products','warehouses',
     'financial_accounts'
   ] loop
@@ -223,7 +223,7 @@ begin
   end if;
 
   -- Invoices and their items.
-  foreach v_table in array['invoices','invoice_items','warehouse_stock','stock_movements'] loop
+  foreach v_table in ARRAY ARRAY['invoices','invoice_items','warehouse_stock','stock_movements'] loop
     v_rows := coalesce(p_payload->'tables'->v_table, '[]'::jsonb);
     if jsonb_array_length(v_rows) = 0 then continue; end if;
 
@@ -249,7 +249,7 @@ begin
   end loop;
 
   -- Self-referencing financial rows: insert without reversal links first.
-  foreach v_table in array['payments','expenses'] loop
+  foreach v_table in ARRAY ARRAY['payments','expenses'] loop
     v_rows := coalesce(p_payload->'tables'->v_table, '[]'::jsonb);
     if jsonb_array_length(v_rows) = 0 then continue; end if;
 
