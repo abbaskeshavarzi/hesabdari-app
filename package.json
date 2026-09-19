@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "export": "next build",
-    "test": "node --test tests",
+    "test": "npm run test:unit",
     "lint": "node scripts/lint.mjs",
     "typecheck": "npx --yes -p typescript@5.9.2 tsc --noEmit --allowJs --checkJs false --jsx preserve --moduleResolution bundler --module esnext --target ES2020 --skipLibCheck pages/*.js components/*.js lib/*.js",
-    "build:verify": "npm run build && test -d out"
+    "build:verify": "npm run build && test -d out",
+    "test:unit": "node --test tests/unit",
+    "test:smoke": "node --test tests/build-smoke.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
