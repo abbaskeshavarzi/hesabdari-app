@@ -1,0 +1,17 @@
+begin;
+select plan(13);
+select ok(not has_table_privilege('anon','public.customers','SELECT'),'anon cannot read customers');
+select ok(not has_table_privilege('anon','public.invoices','SELECT'),'anon cannot read invoices');
+select ok(not has_table_privilege('authenticated','public.invoices','INSERT'),'authenticated cannot direct-insert invoices');
+select ok(not has_table_privilege('authenticated','public.payments','INSERT'),'authenticated cannot direct-insert payments');
+select ok(not has_table_privilege('authenticated','public.expenses','INSERT'),'authenticated cannot direct-insert expenses');
+select ok(not has_table_privilege('authenticated','public.stock_movements','INSERT'),'authenticated cannot direct-insert stock movements');
+select ok(not has_table_privilege('authenticated','public.journal_entries','INSERT'),'authenticated cannot direct-insert journal entries');
+select ok(has_function_privilege('authenticated','public.create_invoice_with_items(uuid,text,date,date,text,text,jsonb,text,numeric,numeric,numeric)','EXECUTE'),'authenticated can call invoice RPC');
+select ok(not has_function_privilege('anon','public.create_invoice_with_items(uuid,text,date,date,text,text,jsonb,text,numeric,numeric,numeric)','EXECUTE'),'anon cannot call invoice RPC');
+select ok(not has_function_privilege('anon','public.stock_adjust(uuid,uuid,numeric,text)','EXECUTE'),'anon cannot call inventory RPC');
+select ok((select reloptions @> array['security_invoker=true'] from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='general_ledger'),'general_ledger is security_invoker');
+select ok(position('invoices.create' in pg_get_functiondef('public.create_invoice_with_items(uuid,text,date,date,text,text,jsonb,text,numeric,numeric,numeric)'::regprocedure))>0,'invoice RPC enforces permission');
+select ok(position('reports.view' in pg_get_functiondef('public.get_reports_data(date,date,integer,integer)'::regprocedure))>0,'reports RPC enforces permission');
+select * from finish();
+rollback;
