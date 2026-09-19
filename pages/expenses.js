@@ -9,6 +9,7 @@ import { TableSkeleton } from '../components/Skeleton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { downloadCsv } from '../lib/csv';
 import { supabase } from '../lib/supabaseClient';
+import { isPositiveAmount } from '../lib/financialValidation.mjs';
 import { friendlyError } from '../lib/errorMessages';
 
 const PAGE_SIZE = 15;
@@ -59,7 +60,7 @@ export default function Expenses() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.amount || Number(form.amount) <= 0) return setError('مبلغ معتبر الزامی است.');
+    if (!isPositiveAmount(form.amount)) return setError('مبلغ معتبر الزامی است.');
     const { data: expenseAccount } = await supabase.from('chart_of_accounts').select('id').eq('code', '5100').eq('account_type', 'EXPENSE').eq('is_active', true).limit(1).maybeSingle();
     const { data: financialAccount } = await supabase.from('financial_accounts').select('id').eq('is_active', true).limit(1).maybeSingle();
     if (!expenseAccount?.id || !financialAccount?.id) return setError('برای ثبت هزینه باید حساب هزینه 5100 و حداقل یک حساب مالی فعال وجود داشته باشد.');
