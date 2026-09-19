@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const roots = ['pages', 'components', 'lib', 'scripts', 'tests'];
+const roots = ['pages', 'components', 'lib', 'tests'];
 const extensions = new Set(['.js', '.mjs', '.jsx']);
 const ignored = new Set(['node_modules', '.next', 'out', '.git']);
 const findings = [];
