@@ -19,10 +19,10 @@
     "chart.js": "^4.4.4",
     "jspdf": "^2.5.2",
     "modern-screenshot": "^4.5.4",
-    "next": "14.2.5",
-    "react": "18.3.1",
+    "next": "16.3.5",
+    "react": "19.2.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "18.3.1"
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",
