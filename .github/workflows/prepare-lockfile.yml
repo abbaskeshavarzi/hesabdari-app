@@ -18,6 +18,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm install --package-lock-only
+      - name: Dependency audit
+        run: npm audit --json > audit.json || true
+      - name: Print audit summary
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const a = JSON.parse(fs.readFileSync('audit.json','utf8'));
+          console.log(JSON.stringify(a.metadata?.vulnerabilities || {}, null, 2));
+          for (const [name,v] of Object.entries(a.vulnerabilities || {})) {
+            console.log(JSON.stringify({name, severity:v.severity, isDirect:v.isDirect, range:v.range, via:v.via, fixAvailable:v.fixAvailable, nodes:v.nodes}, null, 2));
+          }
+          NODE
       - name: Commit generated lockfile
         run: |
           if git diff --quiet -- package-lock.json; then
