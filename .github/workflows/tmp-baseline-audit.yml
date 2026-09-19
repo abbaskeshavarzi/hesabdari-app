@@ -1,0 +1,30 @@
+name: Baseline dependency audit
+
+on:
+  push:
+    branches: [tmp-baseline-audit]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm audit --json > audit.json || true
+      - name: Print audit
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const a=JSON.parse(fs.readFileSync('audit.json','utf8'));
+          console.log(JSON.stringify(a.metadata?.vulnerabilities||{},null,2));
+          for(const [name,v] of Object.entries(a.vulnerabilities||{})){
+            console.log(JSON.stringify({name,severity:v.severity,isDirect:v.isDirect,range:v.range,via:v.via,fixAvailable:v.fixAvailable,nodes:v.nodes},null,2));
+          }
+          NODE
