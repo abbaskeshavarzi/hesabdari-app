@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { formatJalaliShort } from '../lib/dateFormat';
 import { friendlyError } from '../lib/errorMessages';
 import { supabase } from '../lib/supabaseClient';
+import { isPositiveAmount } from '../lib/financialValidation.mjs';
 
 const PAGE_SIZE = 15;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -46,7 +47,7 @@ export default function Payments() {
 
   async function submit(e) {
     e.preventDefault(); setError('');
-    if (!form.financial_account_id || !form.amount || Number(form.amount) <= 0) return setError('حساب مالی و مبلغ معتبر الزامی است.');
+    if (!form.financial_account_id || !isPositiveAmount(form.amount)) return setError('حساب مالی و مبلغ معتبر الزامی است.');
     if (form.direction === 'RECEIPT' && !form.customer_id) return setError('برای دریافت، انتخاب مشتری الزامی است.');
     if (form.direction === 'PAYMENT' && !form.supplier_id) return setError('برای پرداخت، انتخاب تأمین‌کننده الزامی است.');
     setSubmitting(true);
