@@ -18,8 +18,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # CI uses non-production placeholders so fork PRs do not need repository secrets.
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
       GITHUB_PAGES: 'true'
       REPO_NAME: ${{ github.event.repository.name }}
     steps:
@@ -31,6 +32,13 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Frontend secret guard
+        run: |
+          if git grep -n -E 'SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY|service_role' -- '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '.github/**'; then
+            echo "Service-role credentials or service_role references must not exist in frontend/workflow source."
+            exit 1
+          fi
 
       - name: Dependency security audit
         run: npm audit --audit-level=moderate
