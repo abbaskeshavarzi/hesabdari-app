@@ -89,7 +89,7 @@ A suitable next integration must provide:
 - access controls
 - optional email/Slack-style notifications
 
-Sentry is one example of a provider that supports project environments, event retrieval and alert-oriented project configuration; provider selection is intentionally left as a deployment decision. citeturn0search5turn0search11
+Sentry is one example of a provider that supports project environments, event retrieval and alert-oriented project configuration; provider selection is intentionally left as a deployment decision.
 
 ## Supabase monitoring
 
